@@ -1,18 +1,19 @@
-# apps/api/app/services/auth_service.py — placeholder, implemented in Task 6
-from passlib.context import CryptContext
+# apps/api/app/services/auth_service.py
+import bcrypt
 from flask_jwt_extended import create_access_token
 from ..models.user import User
 from ..extensions import db
 
-_pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 class AuthService:
     def hash_password(self, plain: str) -> str:
-        return _pwd_ctx.hash(plain)
+        return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
     def verify_password(self, plain: str, hashed: str) -> bool:
-        return _pwd_ctx.verify(plain, hashed)
+        try:
+            return bcrypt.checkpw(plain.encode(), hashed.encode())
+        except Exception:
+            return False
 
     def authenticate(self, email: str, password: str) -> User | None:
         user = db.session.scalar(

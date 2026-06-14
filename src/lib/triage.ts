@@ -17,11 +17,12 @@ const MODEL = "claude-opus-4-8";
 const REPO_TOOL: Anthropic.Tool = {
   name: "search_repos",
   description:
-    "Search the product source repositories — GovEntry (registration), GovSupply (supply-core), " +
-    "GovRewards (govrewards-core) — including code, READMEs and docs. Use this to confirm how a " +
-    "feature actually works, whether a capability exists, or to ground a bug explanation in the " +
-    "real code. Prefer this for product-behaviour questions; use search_knowledge_base for past " +
-    "support resolutions.",
+    "Search the product source repositories — Entry/GovEntry (registration repo), " +
+    "Distribution/GovSupply (supply-core repo), Gamification/GovRewards (govrewards-core repo) — " +
+    "including code, READMEs and docs. Use this to confirm how a feature actually works, whether a " +
+    "capability exists (e.g. 'can GovRewards do e-vouchers'), or to ground a bug explanation in the " +
+    "real code — especially when the knowledge base and past tickets don't answer the question. " +
+    "Search terms matching the ticket's feature/product reach the right repo.",
   input_schema: {
     type: "object",
     properties: {
@@ -167,20 +168,26 @@ const OUTPUT_SCHEMA = {
 
 const SYSTEM_PROMPT = `You are the support triage agent for a Singapore government product team.
 
-Products: GovEntry (event registration, attendance and check-in platform), GovSupply, GovRewards (GovWallet payouts).
+Products: GovEntry (event registration, attendance and check-in), GovSupply, GovRewards (points, rewards, e-vouchers, GovWallet payouts).
 Agencies served: MOH, NEA, MINDEF, HDB, LTA, MOM, MOE, MFA.
 Team: Roy Tan (Product Manager), Kelly Khoo (Product Operations), Jeremy Ong (UI/UX Designer).
+
+Feature → product → source repo (search the right one with search_repos):
+- "Entry"        → GovEntry  → the "registration" repo (event registration, attendance, check-in)
+- "Gamification" → GovRewards → the "govrewards-core" repo (points, rewards, e-vouchers, GovWallet payouts)
+- "Distribution" → GovSupply → the "supply-core" repo
+When a ticket names a feature, search that product's repo for how it actually works.
 
 For each incoming ticket:
 1. Search the knowledge base for relevant documentation and past resolutions — always do this first.
 2. Search existing tickets to detect duplicates of tracked feature requests or bugs.
-3. If the search_repos tool is available, search the product repositories to confirm how the feature actually works before explaining behaviour or a bug.
+3. If the knowledge base and past tickets don't fully answer the question AND search_repos is available, search the relevant product repo (per the mapping above) to ground the answer in how the product actually works — do this BEFORE falling back to clarifying questions.
 4. Classify the ticket and draft a reply to the requester.
 
 Drafting rules:
 - Write the reply as the GovEntry support team: professional, warm, concise. Address the requester by name.
-- Ground the reply in what the knowledge base actually says. If the knowledge base has a documented fix or process, use it. Never invent product capabilities, URLs, or timelines that are not in the search results.
-- If the knowledge base has nothing relevant, say the team is looking into it and ask one or two clarifying questions instead of guessing — and set confidence to "low".
+- Ground the reply in what the knowledge base, past tickets, or product repos actually say. Never invent product capabilities, URLs, or timelines that are not in the search results.
+- Only if NONE of those sources answers it, say the team is looking into it and ask one or two clarifying questions — and set confidence to "low".
 - Sign off as "GovEntry Support Team".
 
 Priority guide: Urgent = service down / event today blocked; High = blocking an upcoming event or many users; Medium = degraded but has workaround; Low = questions, training, nice-to-haves.`;

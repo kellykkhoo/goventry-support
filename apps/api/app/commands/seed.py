@@ -250,4 +250,32 @@ def seed_demo(if_empty: bool = False) -> None:
     except Exception:  # noqa: BLE001
         pass  # No app context or admin user — skip silently
 
+    # 6. Proposed actions (Phase 3)
+    from ..models.proposed_action import (
+        ProposedAction, ActionType, ProposalStatus, ApprovalTier,
+    )
+    existing_proposals = db.session.scalar(
+        db.select(db.func.count()).select_from(ProposedAction))
+    if not existing_proposals:
+        for issue in created_issues:
+            if issue.ai_draft_reply:
+                db.session.add(ProposedAction(
+                    action_type=ActionType.reply, issue_id=issue.id,
+                    proposer="agent:triage",
+                    proposed_payload={"body": issue.ai_draft_reply},
+                    required_tier=ApprovalTier.admin, status=ProposalStatus.pending))
+        backlog = next((i for i in created_issues if i.status == Status.Backlog), None)
+        if backlog is not None:
+            db.session.add(ProposedAction(
+                action_type=ActionType.status_change, issue_id=backlog.id,
+                proposer="agent:hermes", proposed_payload={"status": "InProgress"},
+                required_tier=ApprovalTier.human, status=ProposalStatus.pending))
+        if created_issues:
+            first = created_issues[0]
+            db.session.add(ProposedAction(
+                action_type=ActionType.tag_change, issue_id=first.id,
+                proposer="agent:hermes", proposed_payload={"agency_id": first.agency_id},
+                required_tier=ApprovalTier.auto, status=ProposalStatus.executed,
+                decided_at=now))
+
     db.session.commit()

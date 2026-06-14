@@ -108,3 +108,67 @@ def test_list_proposals_agency_scoped(app, agencies, pm_user):
         result = approval_service.list_proposals(pm)
         assert result["total"] == 1
         assert result["items"][0].issue_id == moh.id
+
+
+def _admin(db):
+    from app.models.user import User
+    from app.models.role import Role
+    u = User(email="adm@test.com", name="Adm",
+             role=db.session.scalar(db.select(Role).where(Role.name == "Admin")))
+    db.session.add(u); db.session.commit()
+    return u
+
+
+def test_approve_admin_tier_blocked_for_pm(app, agencies, pm_user):
+    import pytest
+    from app.extensions import db
+    from app.models.proposed_action import ActionType
+    from app.services.approval_service import approval_service
+    with app.app_context():
+        issue = _mk_issue(db, agencies["MOH"], email="r@moh.gov.sg")
+        p = approval_service.propose(ActionType.reply, issue, {"body": "hi"}, "agent:triage")
+        pm = db.session.merge(pm_user)
+        with pytest.raises(PermissionError):
+            approval_service.approve(pm, p.id)
+
+
+def test_approve_reply_sends_and_resolves(app, agencies):
+    from app.extensions import db
+    from app.models.issue import Issue, Status
+    from app.models.ticket_message import TicketMessage, Direction
+    from app.models.knowledge_entry import KnowledgeEntry
+    from app.models.proposed_action import ActionType, ProposalStatus
+    import app.services.approval_service as mod
+    import app.services.issue_service as isvc
+
+    sent = {}
+    isvc.email_service.send = lambda **kw: sent.update(kw) or {"provider": "dev-console"}
+
+    with app.app_context():
+        admin = _admin(db)
+        issue = _mk_issue(db, agencies["MOH"], email="r@moh.gov.sg")
+        p = mod.approval_service.propose(ActionType.reply, issue, {"body": "original"}, "agent:triage")
+        result = mod.approval_service.approve(admin, p.id, final_payload={"body": "edited reply"})
+        assert result.status == ProposalStatus.executed
+        assert sent["to"] == "r@moh.gov.sg"
+        refreshed = db.session.get(Issue, issue.id)
+        assert refreshed.status == Status.Done
+        msgs = db.session.scalars(db.select(TicketMessage)).all()
+        assert any(m.direction == Direction.outbound and m.body == "edited reply" for m in msgs)
+        assert db.session.scalar(db.select(db.func.count()).select_from(KnowledgeEntry)) == 1
+
+
+def test_reject_requires_reason(app, agencies):
+    import pytest
+    from app.extensions import db
+    from app.models.proposed_action import ActionType, ProposalStatus
+    from app.services.approval_service import approval_service
+    with app.app_context():
+        admin = _admin(db)
+        issue = _mk_issue(db, agencies["MOH"])
+        p = approval_service.propose(ActionType.reply, issue, {"body": "hi"}, "agent:triage")
+        with pytest.raises(ValueError):
+            approval_service.reject(admin, p.id, "")
+        result = approval_service.reject(admin, p.id, "Not appropriate")
+        assert result.status == ProposalStatus.rejected
+        assert result.reject_reason == "Not appropriate"

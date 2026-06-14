@@ -95,7 +95,60 @@ class ApprovalService:
             raise PermissionError("Out of agency scope")
         return proposal
 
-    # --- approve/reject added in Task 5 ---
+    def _check_tier(self, user, tier) -> None:
+        role = user.role.name if user.role else None
+        if tier == ApprovalTier.admin and role != ADMIN:
+            raise PermissionError("Admin approval required")
+        if tier == ApprovalTier.human and role not in WRITE_ROLES:
+            raise PermissionError("Reviewer role required")
+
+    def approve(self, user, proposal_id, final_payload=None) -> ProposedAction:
+        proposal = self.get_proposal(user, proposal_id)
+        if proposal.status != ProposalStatus.pending:
+            raise ValueError("Proposal is not pending")
+        self._check_tier(user, proposal.required_tier)
+        if final_payload is not None:
+            proposal.final_payload = final_payload
+        proposal.status = ProposalStatus.approved
+        proposal.reviewer_id = user.id
+        proposal.decided_at = datetime.now(timezone.utc)
+        db.session.commit()
+        issue = db.session.get(Issue, proposal.issue_id)
+        audit_service.log("proposal_approved", user=user, issue=issue,
+                          detail={"proposal_id": proposal.id})
+        try:
+            self._execute(proposal, reviewer=user)
+            proposal.status = ProposalStatus.executed
+            db.session.commit()
+            audit_service.log("proposal_executed", user=user, issue=issue,
+                              detail={"proposal_id": proposal.id})
+        except Exception as exc:  # noqa: BLE001
+            db.session.rollback()
+            proposal.status = ProposalStatus.failed
+            db.session.commit()
+            audit_service.log("proposal_failed", user=user, issue=issue,
+                              detail={"proposal_id": proposal.id, "error": str(exc)})
+            raise
+        return proposal
+
+    def reject(self, user, proposal_id, reason) -> ProposedAction:
+        proposal = self.get_proposal(user, proposal_id)
+        if proposal.status != ProposalStatus.pending:
+            raise ValueError("Proposal is not pending")
+        role = user.role.name if user.role else None
+        if role not in WRITE_ROLES:
+            raise PermissionError("Reviewer role required")
+        if not reason or not reason.strip():
+            raise ValueError("Reject reason required")
+        proposal.status = ProposalStatus.rejected
+        proposal.reviewer_id = user.id
+        proposal.reject_reason = reason.strip()
+        proposal.decided_at = datetime.now(timezone.utc)
+        db.session.commit()
+        issue = db.session.get(Issue, proposal.issue_id)
+        audit_service.log("proposal_rejected", user=user, issue=issue,
+                          detail={"proposal_id": proposal.id, "reason": reason.strip()})
+        return proposal
 
     # --- execution (dispatch) ---
     def _execute(self, proposal, reviewer) -> None:

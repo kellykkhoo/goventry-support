@@ -1,6 +1,6 @@
 # apps/api/app/services/issue_service.py
 from ..extensions import db
-from ..models.issue import Issue, Status, Priority, Product, Source
+from ..models.issue import Issue, IssueAgency, Status, Priority, Product, Source
 from ..models.ticket_message import TicketMessage, Direction
 from ..models.knowledge_entry import KnowledgeEntry, SourceType, Visibility
 from ..models.agency import UserAgencyAccess
@@ -95,6 +95,19 @@ class IssueService:
         db.session.add(msg); db.session.commit()
         audit_service.log("note_added", user=user, issue=issue)
         return msg
+
+    def add_agency_tag(self, user, issue_id, agency_id):
+        self._require_write(user)
+        issue = self.get_issue(user, issue_id)
+        existing = db.session.scalar(db.select(IssueAgency).where(
+            IssueAgency.issue_id == issue.id, IssueAgency.agency_id == agency_id))
+        if existing is None:
+            db.session.add(IssueAgency(issue_id=issue.id, agency_id=agency_id))
+            db.session.commit()
+            audit_service.log("agency_tagged", user=user, issue=issue,
+                              detail={"agency_id": agency_id})
+        return db.session.scalar(db.select(IssueAgency).where(
+            IssueAgency.issue_id == issue.id, IssueAgency.agency_id == agency_id))
 
     def list_messages(self, user, issue_id) -> list[TicketMessage]:
         issue = self.get_issue(user, issue_id)

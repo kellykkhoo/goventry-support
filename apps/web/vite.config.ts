@@ -9,6 +9,9 @@ export default defineConfig({
       "/auth": "http://localhost:5000",
       "/admin": "http://localhost:5000",
       "/issues": "http://localhost:5000",
+      "/agencies": "http://localhost:5000",
+      "/team": "http://localhost:5000",
+      "/seed": "http://localhost:5000",
     },
   },
 });

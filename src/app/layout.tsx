@@ -3,8 +3,8 @@ import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 
 export const metadata: Metadata = {
-  title: "GovEntry PM Tool",
-  description: "Product management and support for GovEntry / GovSupply / GovRewards",
+  title: "GovEntry Support",
+  description: "Support tooling for GovEntry / GovSupply / GovRewards",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

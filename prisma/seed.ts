@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { CANONICAL_DOCS } from "./docs";
 
 const db = new PrismaClient();
 
@@ -104,27 +105,10 @@ async function main() {
     });
   }
 
-  // Knowledge base: docs + past resolutions = the agent's memory
+  // Knowledge base: docs (canonical set) + past resolutions = the agent's memory
   await db.knowledgeEntry.createMany({
     data: [
-      {
-        title: "GovEntry event admin onboarding guide",
-        sourceType: "doc",
-        content:
-          "New event admins are onboarded via the self-serve portal at app.entry.gov.sg. Steps: (1) request admin access through your agency's GovEntry liaison, (2) complete the 30-min self-paced training deck, (3) create a test event in the sandbox. Group training sessions run on the first Tuesday of each month — direct agencies to the signup form. For urgent onboarding, share the quick-start PDF and offer a 1:1 call.",
-      },
-      {
-        title: "IDV troubleshooting: check-in identity verification failures",
-        sourceType: "doc",
-        content:
-          "Common causes of identity verification failures at check-in: (1) attendee record has an Official ID with a trailing space or wrong format — re-import with validation on; (2) attendee registered under a different ID type (FIN vs NRIC); (3) device clock drift on the scanning device causes token mismatch — resync device time; (4) walk-in attendees not yet in the campaign list. First-line fix: use attendance-assisted mode to check the attendee in manually, then file the record correction.",
-      },
-      {
-        title: "API / webhook access for external registration systems",
-        sourceType: "doc",
-        content:
-          "GovEntry exposes a registration webhook (X-GovEntry-Signature, v1 HMAC scheme) and a REST API covering venues, attendees, webhooks and file uploads. Agencies wanting to link an external registration system should: (1) email GovEntry_Support@tech.gov.sg to request API onboarding, (2) provide their endpoint URL for webhook subscription, (3) implement signature verification per the Webhook Specifications on docs.developer.tech.gov.sg. Typical onboarding takes 1-2 weeks.",
-      },
+      ...CANONICAL_DOCS.map((d) => ({ ...d, sourceType: "doc" })),
       {
         title: "Resolved: NEA training request for event admins (May 2026)",
         sourceType: "resolved_ticket",
@@ -140,7 +124,7 @@ async function main() {
     ],
   });
 
-  console.log("Seeded: 8 agencies, 3 team members, 13 issues, 5 knowledge entries.");
+  console.log(`Seeded: 9 agencies, 3 team members, 13 issues, ${CANONICAL_DOCS.length} docs + 2 resolved.`);
 }
 
 main()

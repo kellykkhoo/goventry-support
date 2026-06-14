@@ -17,7 +17,7 @@ export function Sidebar() {
   return (
     <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-border bg-panel px-3 py-5">
       <div className="mb-6 px-2">
-        <div className="text-sm font-semibold text-white">GovEntry PM</div>
+        <div className="text-sm font-semibold text-white">GovEntry Support</div>
         <div className="text-xs text-muted">GovEntry · GovSupply · GovRewards</div>
       </div>
       <nav className="flex flex-col gap-0.5">

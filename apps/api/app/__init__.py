@@ -52,6 +52,9 @@ def create_app(config: Config | None = None) -> Flask:
         print(f"Created admin: {cfg.BOOTSTRAP_ADMIN_EMAIL}")
 
     # Import models so Flask-Migrate/Alembic can detect them
-    from .models import Role, User, Agency, UserAgencyAccess  # noqa: F401
+    from .models import (  # noqa: F401
+        Role, User, Agency, UserAgencyAccess, TeamMember,
+        Issue, IssueAgency, TicketMessage, KnowledgeEntry, AuditLog,
+    )
 
     return app

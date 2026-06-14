@@ -1,29 +1,44 @@
 // apps/web/src/components/AppShell.tsx
 import { Link, Outlet, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
+import { api } from "../lib/api";
 
-const NAV_ITEMS = [
-  { to: "/tickets", label: "Tickets" },
-  { to: "/agencies", label: "Agencies" },
-];
-
-function NavLink({ to, label }: { to: string; label: string }) {
+function NavLink({ to, label, badge }: { to: string; label: string; badge?: number }) {
   const { pathname } = useLocation();
   const active = pathname.startsWith(to);
   return (
     <Link
       to={to}
-      className={`block px-3 py-2 rounded text-sm transition-colors ${
+      className={`flex items-center justify-between px-3 py-2 rounded text-sm transition-colors ${
         active ? "bg-gray-700 text-white" : "text-gray-300 hover:bg-gray-700 hover:text-white"
       }`}
     >
-      {label}
+      <span>{label}</span>
+      {badge != null && badge > 0 && (
+        <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-amber-500 text-white rounded-full">
+          {badge > 9 ? "9+" : badge}
+        </span>
+      )}
     </Link>
   );
 }
 
 export default function AppShell() {
   const { user, logout } = useAuth();
+
+  const { data: pendingApprovals } = useQuery({
+    queryKey: ["approvals", "pending-count"],
+    queryFn: () =>
+      api.listApprovals(new URLSearchParams({ status: "pending", per_page: "1" })),
+    refetchInterval: 30000,
+  });
+
+  const NAV_ITEMS = [
+    { to: "/tickets", label: "Tickets" },
+    { to: "/agencies", label: "Agencies" },
+    { to: "/approvals", label: "Approvals", badge: pendingApprovals?.total },
+  ];
 
   return (
     <div className="min-h-screen flex">

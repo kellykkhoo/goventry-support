@@ -8,6 +8,7 @@ import LoginPage from "./pages/LoginPage";
 import TicketsPage from "./pages/TicketsPage";
 import TicketDetailPage from "./pages/TicketDetailPage";
 import AgenciesPage from "./pages/AgenciesPage";
+import ApprovalQueuePage from "./pages/ApprovalQueuePage";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ export default function App() {
               <Route path="tickets" element={<TicketsPage />} />
               <Route path="tickets/:id" element={<TicketDetailPage />} />
               <Route path="agencies" element={<AgenciesPage />} />
+              <Route path="approvals" element={<ApprovalQueuePage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

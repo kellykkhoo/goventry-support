@@ -5,6 +5,9 @@ import { AuthProvider } from "./lib/auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AppShell from "./components/AppShell";
 import LoginPage from "./pages/LoginPage";
+import TicketsPage from "./pages/TicketsPage";
+import TicketDetailPage from "./pages/TicketDetailPage";
+import AgenciesPage from "./pages/AgenciesPage";
 
 const queryClient = new QueryClient();
 
@@ -23,14 +26,10 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route
-                index
-                element={
-                  <div className="p-8 text-gray-400 text-sm">
-                    Ticket dashboard — coming in Phase 2
-                  </div>
-                }
-              />
+              <Route index element={<Navigate to="/tickets" replace />} />
+              <Route path="tickets" element={<TicketsPage />} />
+              <Route path="tickets/:id" element={<TicketDetailPage />} />
+              <Route path="agencies" element={<AgenciesPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

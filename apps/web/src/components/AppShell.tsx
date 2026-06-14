@@ -2,11 +2,14 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 
-const NAV_ITEMS = [{ to: "/", label: "Tickets" }];
+const NAV_ITEMS = [
+  { to: "/tickets", label: "Tickets" },
+  { to: "/agencies", label: "Agencies" },
+];
 
 function NavLink({ to, label }: { to: string; label: string }) {
   const { pathname } = useLocation();
-  const active = pathname === to;
+  const active = pathname.startsWith(to);
   return (
     <Link
       to={to}

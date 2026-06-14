@@ -123,8 +123,19 @@ export async function deleteKnowledgeEntry(id: number) {
   revalidatePath("/knowledge");
 }
 
-export async function runTriage(issueId: number) {
-  const result = await triageIssue(issueId);
-  revalidateAll(issueId);
-  return { ok: result !== null };
+export async function runTriage(issueId: number): Promise<{ ok: boolean; detail?: string }> {
+  try {
+    const result = await triageIssue(issueId);
+    revalidateAll(issueId);
+    if (!result) {
+      return {
+        ok: false,
+        detail: "No result — check that ANTHROPIC_API_KEY is set and the account has credits.",
+      };
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error("[runTriage] failed:", e);
+    return { ok: false, detail: `Triage error: ${e instanceof Error ? e.message : String(e)}` };
+  }
 }

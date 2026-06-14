@@ -40,7 +40,7 @@ export function TriagePanel({
     start(async () => {
       setError(null);
       const res = await runTriage(issueId);
-      if (!res.ok) setError("Triage failed — is ANTHROPIC_API_KEY set in .env?");
+      if (!res.ok) setError(res.detail ?? "Triage failed.");
     });
 
   return (

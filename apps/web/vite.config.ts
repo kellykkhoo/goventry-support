@@ -15,6 +15,7 @@ export default defineConfig({
       "/agencies": "http://127.0.0.1:5000",
       "/team": "http://127.0.0.1:5000",
       "/seed": "http://127.0.0.1:5000",
+      "/approvals": "http://127.0.0.1:5000",
     },
   },
 });

@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from ..extensions import db
 from ..models.issue import Issue, Priority, Product, IssueType
 from .knowledge_service import knowledge_service
+from ..models.proposed_action import ActionType
+from .approval_service import approval_service
 
 MODEL = "claude-opus-4-8"
 MAX_TOKENS = 8000
@@ -111,7 +113,6 @@ def run_triage(issue_id: int) -> dict | None:
         return None
 
     issue.ai_triage_json = parsed
-    issue.ai_draft_reply = parsed.get("draftReply")
     issue.triaged_at = datetime.now(timezone.utc)
     if parsed.get("priority") in _PRIORITY:
         issue.priority = _PRIORITY[parsed["priority"]]
@@ -120,6 +121,11 @@ def run_triage(issue_id: int) -> dict | None:
     if parsed.get("issueType") in _ISSUE_TYPE:
         issue.issue_type = _ISSUE_TYPE[parsed["issueType"]]
     db.session.commit()
+    draft = parsed.get("draftReply")
+    if draft:
+        approval_service.propose(
+            action_type=ActionType.reply, issue=issue,
+            proposed_payload={"body": draft}, proposer="agent:triage")
     return parsed
 
 

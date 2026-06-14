@@ -21,9 +21,13 @@ def create_app(config: Config | None = None) -> Flask:
     from .routes.auth import bp as auth_bp
     from .routes.admin import bp as admin_bp
     from .routes.issues import bp as issues_bp
+    from .routes.agencies import bp as agencies_bp
+    from .routes.team import bp as team_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(issues_bp)
+    app.register_blueprint(agencies_bp)
+    app.register_blueprint(team_bp)
 
     @app.cli.command("bootstrap-admin")
     def bootstrap_admin() -> None:

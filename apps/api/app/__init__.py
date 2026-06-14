@@ -66,6 +66,7 @@ def create_app(config: Config | None = None) -> Flask:
     from .models import (  # noqa: F401
         Role, User, Agency, UserAgencyAccess, TeamMember,
         Issue, IssueAgency, TicketMessage, KnowledgeEntry, AuditLog,
+        ProposedAction,
     )
 
     return app

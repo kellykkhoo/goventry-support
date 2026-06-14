@@ -3,9 +3,10 @@ generator client {
 }
 
 datasource db {
-  // SQLite for local dev. At deploy time switch provider to "postgresql"
-  // and point DATABASE_URL at a postgres:// URL — no schema changes needed.
-  provider = "sqlite"
+  // Postgres for both production (Render) and local dev. Point DATABASE_URL at
+  // your Render Postgres connection string (external URL for local, internal on
+  // Render). The schema is provider-agnostic — no model changes were needed.
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

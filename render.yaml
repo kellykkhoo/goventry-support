@@ -1,0 +1,40 @@
+# Render Blueprint — provisions the web service + Postgres in one step.
+# In Render: New + → Blueprint → connect this repo. Secrets (sync:false) are
+# set in the dashboard after the first deploy.
+services:
+  - type: web
+    name: goventry-support
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: npm install && npx prisma generate && npm run build
+    # db push creates/updates tables on each deploy (idempotent, safe); then start.
+    startCommand: npx prisma db push --skip-generate --accept-data-loss && npm run start
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: goventry-db
+          property: connectionString
+      - key: NODE_VERSION
+        value: "22"
+      # --- secrets: set these in the Render dashboard (Environment tab) ---
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: FORMSG_SECRET_KEY
+        sync: false
+      - key: FORMSG_WEBHOOK_URI
+        sync: false # set to https://<your-app>.onrender.com/api/webhooks/formsg after first deploy
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_REPLY_TO
+        sync: false
+      # NOTE: REPO_PATHS is intentionally NOT set here — the gov source repos
+      # must not be cloned onto commercial cloud. Repo-search stays off on Render
+      # (demo runs on tickets + knowledge base). It belongs on RabbitDeploy.
+
+databases:
+  - name: goventry-db
+    plan: free
+    databaseName: goventry
+    user: goventry

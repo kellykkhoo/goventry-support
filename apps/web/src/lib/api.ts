@@ -1,4 +1,12 @@
 // apps/web/src/lib/api.ts
+import type {
+  Issue,
+  IssueListResponse,
+  TicketMessage,
+  AgenciesResponse,
+  TeamMember,
+} from "./types";
+
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
 // --- Token storage ---
@@ -67,6 +75,49 @@ export const api = {
 
   me() {
     return request<AuthUser>("/auth/me");
+  },
+
+  listIssues(params: URLSearchParams) {
+    return request<IssueListResponse>(`/issues?${params.toString()}`);
+  },
+  getIssue(id: number) {
+    return request<Issue>(`/issues/${id}`);
+  },
+  listMessages(id: number) {
+    return request<TicketMessage[]>(`/issues/${id}/messages`);
+  },
+  addNote(id: number, body: string) {
+    return request<TicketMessage>(`/issues/${id}/internal-notes`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    });
+  },
+  updateStatus(id: number, status: string) {
+    return request<Issue>(`/issues/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+  },
+  updateAssignee(id: number, assignee_id: number | null) {
+    return request<Issue>(`/issues/${id}/assignee`, {
+      method: "PATCH",
+      body: JSON.stringify({ assignee_id }),
+    });
+  },
+  triage(id: number) {
+    return request<{ ok: boolean }>(`/issues/${id}/triage`, { method: "POST" });
+  },
+  approveReply(id: number, body: string) {
+    return request<Issue>(`/issues/${id}/approve-reply`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    });
+  },
+  listAgencies() {
+    return request<AgenciesResponse>("/agencies");
+  },
+  listTeam() {
+    return request<TeamMember[]>("/team");
   },
 };
 

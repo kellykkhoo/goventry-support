@@ -23,7 +23,10 @@ def _b64(s: str) -> bytes:
 def _verify_formsg_sig(webhook_uri: str) -> bool:
     """Verify X-FormSG-Signature using FormSG's ed25519 public key.
     Skip if FORMSG_SECRET_KEY is unset (dev / smoke-test mode).
-    Note: FORMSG_SECRET_KEY is the form's decryption private key, not a signing secret.
+
+    Header format: t={epoch},s={submissionId},f={formId},v1={ed25519_signature_base64}
+    Base string:   {uri}.{submissionId}.{formId}.{epoch}
+    Source: opengovsg/formsg-python-sdk formsg/util/webhook.py
     """
     if not os.getenv("FORMSG_SECRET_KEY"):
         return True
@@ -39,8 +42,11 @@ def _verify_formsg_sig(webhook_uri: str) -> bool:
             parts[k.strip()] = v.strip()
 
     epoch = parts.get("t", "")
-    sig_b64 = parts.get("s", "")
-    if not epoch or not sig_b64:
+    submission_id = parts.get("s", "")
+    form_id = parts.get("f", "")
+    sig_b64 = parts.get("v1", "")
+
+    if not epoch or not submission_id or not form_id or not sig_b64:
         return False
 
     try:
@@ -51,8 +57,9 @@ def _verify_formsg_sig(webhook_uri: str) -> bool:
 
     try:
         from nacl.signing import VerifyKey
+        base_string = f"{webhook_uri}.{submission_id}.{form_id}.{epoch}"
         verify_key = VerifyKey(_b64(_FORMSG_PROD_PUBKEY))
-        verify_key.verify(f"{epoch}.{webhook_uri}".encode("utf-8"), _b64(sig_b64))
+        verify_key.verify(base_string.encode("utf-8"), _b64(sig_b64))
         return True
     except Exception:
         return False

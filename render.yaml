@@ -8,8 +8,8 @@ services:
     plan: free
     branch: main
     buildCommand: npm install && npx prisma generate && npm run build
-    # db push creates/updates tables on each deploy (idempotent, safe); then start.
-    startCommand: npx prisma db push --skip-generate --accept-data-loss && npm run start
+    # On each deploy: sync schema (idempotent), seed only if DB is empty, then start.
+    startCommand: npx prisma db push --skip-generate --accept-data-loss && npx tsx prisma/seed-if-empty.ts && npm run start
     healthCheckPath: /
     envVars:
       - key: DATABASE_URL

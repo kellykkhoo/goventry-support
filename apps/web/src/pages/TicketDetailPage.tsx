@@ -1,14 +1,13 @@
 // apps/web/src/pages/TicketDetailPage.tsx
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import Badge from "../components/Badge";
-import type { TicketMessage } from "../lib/types";
+import type { TicketMessage, ProposedAction } from "../lib/types";
 
 const WRITE_ROLES = new Set(["PM", "Product Ops", "Admin"]);
-
 const STATUS_OPTIONS = ["Backlog", "InProgress", "Done", "Cancelled"];
 
 function relativeDate(iso: string): string {
@@ -40,10 +39,14 @@ export default function TicketDetailPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const canWrite = WRITE_ROLES.has(user?.role ?? "");
+  const isAdmin = user?.role === "Admin";
 
   const [noteBody, setNoteBody] = useState("");
-  const [draftBody, setDraftBody] = useState<string | null>(null);
+  const [draftBody, setDraftBody] = useState<string>("");
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [approvalEditBodies, setApprovalEditBodies] = useState<Record<number, string>>({});
+  const [approvalRejectReasons, setApprovalRejectReasons] = useState<Record<number, string>>({});
+  const [rejectingApprovalId, setRejectingApprovalId] = useState<number | null>(null);
 
   const {
     data: issue,
@@ -67,12 +70,12 @@ export default function TicketDetailPage() {
     queryFn: () => api.listTeam(),
   });
 
-  // When issue loads, init draftBody from ai_draft_reply
-  // Use effect-like pattern: track last seen ai_draft_reply
-  const aiDraft = issue?.ai_draft_reply ?? null;
-  if (draftBody === null && aiDraft !== null) {
-    setDraftBody(aiDraft);
-  }
+  const { data: proposals } = useQuery({
+    queryKey: ["approvals", "issue", issueId],
+    queryFn: () =>
+      api.listApprovals(new URLSearchParams({ issue_id: String(issueId), status: "pending" })),
+    enabled: !!issueId,
+  });
 
   const addNoteMutation = useMutation({
     mutationFn: (body: string) => api.addNote(issueId, body),
@@ -90,8 +93,7 @@ export default function TicketDetailPage() {
   });
 
   const updateAssigneeMutation = useMutation({
-    mutationFn: (assignee_id: number | null) =>
-      api.updateAssignee(issueId, assignee_id),
+    mutationFn: (assignee_id: number | null) => api.updateAssignee(issueId, assignee_id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
     },
@@ -100,8 +102,8 @@ export default function TicketDetailPage() {
   const triageMutation = useMutation({
     mutationFn: () => api.triage(issueId),
     onSuccess: () => {
-      setDraftBody(null); // will re-init when issue refetches
       queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
+      queryClient.invalidateQueries({ queryKey: ["approvals", "issue", issueId] });
     },
   });
 
@@ -113,10 +115,27 @@ export default function TicketDetailPage() {
     },
   });
 
+  const approveProposalMutation = useMutation({
+    mutationFn: ({ id, body }: { id: number; body?: string }) =>
+      api.approveProposal(id, body !== undefined ? { body } : undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["approvals", "issue", issueId] });
+      queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
+      queryClient.invalidateQueries({ queryKey: ["messages", issueId] });
+    },
+  });
+
+  const rejectProposalMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
+      api.rejectProposal(id, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["approvals", "issue", issueId] });
+      setRejectingApprovalId(null);
+    },
+  });
+
   if (issueLoading) {
-    return (
-      <div className="p-8 text-sm text-gray-400 text-center">Loading ticket…</div>
-    );
+    return <div className="p-8 text-sm text-gray-400 text-center">Loading ticket…</div>;
   }
 
   if (issueError || !issue) {
@@ -126,8 +145,6 @@ export default function TicketDetailPage() {
       </div>
     );
   }
-
-  const currentDraft = draftBody ?? issue.ai_draft_reply ?? "";
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -162,9 +179,7 @@ export default function TicketDetailPage() {
             <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
               Requester
             </h2>
-            <p className="text-sm text-gray-800 font-medium">
-              {issue.requester_name ?? "—"}
-            </p>
+            <p className="text-sm text-gray-800 font-medium">{issue.requester_name ?? "—"}</p>
             {issue.requester_email && (
               <p className="text-sm text-gray-500">{issue.requester_email}</p>
             )}
@@ -175,9 +190,7 @@ export default function TicketDetailPage() {
             <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
               Description
             </h2>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-              {issue.description}
-            </p>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{issue.description}</p>
           </div>
 
           {/* Message thread */}
@@ -185,39 +198,25 @@ export default function TicketDetailPage() {
             <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
               Messages
             </h2>
-            {msgsLoading && (
-              <p className="text-sm text-gray-400">Loading messages…</p>
-            )}
+            {msgsLoading && <p className="text-sm text-gray-400">Loading messages…</p>}
             {!msgsLoading && messages && messages.length === 0 && (
               <p className="text-sm text-gray-400">No messages yet.</p>
             )}
             <div className="space-y-2">
               {(messages ?? []).map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`border rounded p-3 ${messageBg(msg.direction)}`}
-                >
+                <div key={msg.id} className={`border rounded p-3 ${messageBg(msg.direction)}`}>
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-xs font-medium text-gray-600">
-                      {msg.sender_name ?? "System"} ·{" "}
-                      {directionLabel(msg.direction)}
+                      {msg.sender_name ?? "System"} · {directionLabel(msg.direction)}
                     </span>
-                    <span className="text-xs text-gray-400">
-                      {relativeDate(msg.created_at)}
-                    </span>
+                    <span className="text-xs text-gray-400">{relativeDate(msg.created_at)}</span>
                   </div>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {msg.body}
-                  </p>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{msg.body}</p>
                 </div>
               ))}
             </div>
-
-            {/* Add internal note */}
             <div className="mt-4 pt-4 border-t border-gray-100">
-              <h3 className="text-xs font-medium text-gray-500 mb-2">
-                Add internal note
-              </h3>
+              <h3 className="text-xs font-medium text-gray-500 mb-2">Add internal note</h3>
               <textarea
                 value={noteBody}
                 onChange={(e) => setNoteBody(e.target.value)}
@@ -226,9 +225,7 @@ export default function TicketDetailPage() {
                 className="w-full text-sm border border-gray-200 rounded px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
               <button
-                onClick={() => {
-                  if (noteBody.trim()) addNoteMutation.mutate(noteBody.trim());
-                }}
+                onClick={() => { if (noteBody.trim()) addNoteMutation.mutate(noteBody.trim()); }}
                 disabled={!noteBody.trim() || addNoteMutation.isPending}
                 className="mt-2 px-4 py-1.5 bg-gray-800 text-white text-xs rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
               >
@@ -242,44 +239,144 @@ export default function TicketDetailPage() {
             </div>
           </div>
 
-          {/* Draft reply panel */}
-          {issue.ai_draft_reply && (
-            <div className="bg-white border border-green-200 rounded-lg p-4">
-              <h2 className="text-xs font-medium text-green-700 uppercase tracking-wide mb-2">
-                AI Draft Reply
+          {/* Pending approvals card */}
+          {proposals && proposals.items.length > 0 && (
+            <div className="bg-white border border-amber-200 rounded-lg p-4 space-y-3">
+              <h2 className="text-xs font-medium text-amber-700 uppercase tracking-wide">
+                Pending Approvals
               </h2>
-              {canWrite ? (
-                <>
-                  <textarea
-                    value={currentDraft}
-                    onChange={(e) => setDraftBody(e.target.value)}
-                    rows={6}
-                    className="w-full text-sm border border-gray-200 rounded px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-green-500"
-                  />
-                  <button
-                    onClick={() => {
-                      if (currentDraft.trim()) {
-                        approveReplyMutation.mutate(currentDraft.trim());
-                      }
-                    }}
-                    disabled={
-                      !currentDraft.trim() || approveReplyMutation.isPending
-                    }
-                    className="mt-2 px-4 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 transition-colors"
-                  >
-                    {approveReplyMutation.isPending
-                      ? "Sending…"
-                      : "Approve, send & resolve"}
-                  </button>
-                  {approveReplyMutation.isError && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {(approveReplyMutation.error as Error)?.message}
-                    </p>
-                  )}
-                </>
-              ) : (
-                <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded p-3">
-                  {issue.ai_draft_reply}
+              {proposals.items.map((p: ProposedAction) => {
+                const bodyVal =
+                  approvalEditBodies[p.id] ?? (p.proposed_payload.body as string) ?? "";
+                const adminBlocked = p.required_tier === "admin" && !isAdmin;
+                return (
+                  <div key={p.id} className="border border-gray-100 rounded p-3 space-y-2">
+                    <div className="flex gap-2 items-center">
+                      <Badge label={p.action_type.replace("_", " ")} tone="gray" />
+                      <Badge
+                        label={p.required_tier}
+                        tone={p.required_tier === "admin" ? "amber" : "blue"}
+                      />
+                      <span className="text-xs text-gray-500">{p.proposer}</span>
+                    </div>
+                    {p.action_type === "reply" ? (
+                      isAdmin ? (
+                        <textarea
+                          value={bodyVal}
+                          onChange={(e) =>
+                            setApprovalEditBodies((prev) => ({ ...prev, [p.id]: e.target.value }))
+                          }
+                          rows={4}
+                          className="w-full text-sm border border-gray-200 rounded px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        />
+                      ) : (
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded p-2">
+                          {p.proposed_payload.body as string}
+                        </p>
+                      )
+                    ) : (
+                      <div className="text-xs text-gray-600 bg-gray-50 rounded p-2">
+                        {Object.entries(p.proposed_payload).map(([k, v]) => (
+                          <div key={k}>
+                            <span className="text-gray-400">{k}: </span>
+                            <span>{String(v)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {isAdmin ? (
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          onClick={() =>
+                            approveProposalMutation.mutate({
+                              id: p.id,
+                              body: p.action_type === "reply" ? bodyVal : undefined,
+                            })
+                          }
+                          disabled={adminBlocked || approveProposalMutation.isPending}
+                          className="px-3 py-1 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 transition-colors"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() =>
+                            setRejectingApprovalId(rejectingApprovalId === p.id ? null : p.id)
+                          }
+                          className="px-3 py-1 bg-red-100 text-red-700 text-xs rounded hover:bg-red-200 transition-colors"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-amber-600">
+                        Pending Admin approval ·{" "}
+                        <Link to="/approvals" className="underline">
+                          Review in queue
+                        </Link>
+                      </p>
+                    )}
+                    {rejectingApprovalId === p.id && (
+                      <div className="flex gap-2 flex-col">
+                        <input
+                          type="text"
+                          placeholder="Reason (required)"
+                          value={approvalRejectReasons[p.id] ?? ""}
+                          onChange={(e) =>
+                            setApprovalRejectReasons((prev) => ({
+                              ...prev,
+                              [p.id]: e.target.value,
+                            }))
+                          }
+                          className="text-sm border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-400"
+                        />
+                        <button
+                          onClick={() => {
+                            const reason = approvalRejectReasons[p.id] ?? "";
+                            if (reason.trim())
+                              rejectProposalMutation.mutate({ id: p.id, reason });
+                          }}
+                          disabled={
+                            !(approvalRejectReasons[p.id] ?? "").trim() ||
+                            rejectProposalMutation.isPending
+                          }
+                          className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50 transition-colors"
+                        >
+                          Confirm reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Reply composer */}
+          {canWrite && (
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                Reply to requester
+              </h2>
+              <textarea
+                value={draftBody}
+                onChange={(e) => setDraftBody(e.target.value)}
+                rows={6}
+                placeholder="Write a reply… sending resolves the ticket."
+                className="w-full text-sm border border-gray-200 rounded px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-green-500"
+              />
+              <button
+                onClick={() => {
+                  const body = draftBody.trim();
+                  if (body) approveReplyMutation.mutate(body);
+                }}
+                disabled={!draftBody.trim() || approveReplyMutation.isPending}
+                className="mt-2 px-4 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 transition-colors"
+              >
+                {approveReplyMutation.isPending ? "Sending…" : "Approve, send & resolve"}
+              </button>
+              {approveReplyMutation.isError && (
+                <p className="text-xs text-red-600 mt-1">
+                  {(approveReplyMutation.error as Error)?.message}
                 </p>
               )}
             </div>
@@ -288,25 +385,18 @@ export default function TicketDetailPage() {
 
         {/* Right sidebar */}
         <div className="w-56 flex-shrink-0 space-y-4">
-          {/* Status + Assignee */}
           <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
             <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">
-                Status
-              </label>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Status</label>
               {canWrite ? (
                 <select
                   value={issue.status}
-                  onChange={(e) =>
-                    updateStatusMutation.mutate(e.target.value)
-                  }
+                  onChange={(e) => updateStatusMutation.mutate(e.target.value)}
                   disabled={updateStatusMutation.isPending}
                   className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
+                    <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
               ) : (
@@ -314,37 +404,29 @@ export default function TicketDetailPage() {
               )}
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1">
-                Assignee
-              </label>
+              <label className="text-xs font-medium text-gray-500 block mb-1">Assignee</label>
               {canWrite ? (
                 <select
                   value={issue.assignee_id ?? ""}
                   onChange={(e) =>
-                    updateAssigneeMutation.mutate(
-                      e.target.value ? Number(e.target.value) : null
-                    )
+                    updateAssigneeMutation.mutate(e.target.value ? Number(e.target.value) : null)
                   }
                   disabled={updateAssigneeMutation.isPending}
                   className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="">Unassigned</option>
                   {(team ?? []).map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
+                    <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
                 </select>
               ) : (
                 <p className="text-sm text-gray-700">
-                  {team?.find((m) => m.id === issue.assignee_id)?.name ??
-                    "Unassigned"}
+                  {team?.find((m) => m.id === issue.assignee_id)?.name ?? "Unassigned"}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Triage panel */}
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
               AI Triage
@@ -368,35 +450,27 @@ export default function TicketDetailPage() {
                 {(triageMutation.error as Error)?.message}
               </p>
             )}
-
             {issue.ai_triage_json && (
               <div className="mt-3 space-y-2 text-xs">
                 {issue.priority && (
                   <div>
                     <span className="text-gray-400">Priority: </span>
-                    <span className="font-medium text-gray-700">
-                      {issue.priority}
-                    </span>
+                    <span className="font-medium text-gray-700">{issue.priority}</span>
                   </div>
                 )}
                 {issue.product && (
                   <div>
                     <span className="text-gray-400">Product: </span>
-                    <span className="font-medium text-gray-700">
-                      {issue.product}
-                    </span>
+                    <span className="font-medium text-gray-700">{issue.product}</span>
                   </div>
                 )}
-                {typeof (issue.ai_triage_json as Record<string, unknown>)
-                  .confidence === "number" && (
+                {typeof (issue.ai_triage_json as Record<string, unknown>).confidence === "number" && (
                   <div>
                     <span className="text-gray-400">Confidence: </span>
                     <span className="font-medium text-gray-700">
                       {Math.round(
-                        ((issue.ai_triage_json as Record<string, unknown>)
-                          .confidence as number) * 100
-                      )}
-                      %
+                        ((issue.ai_triage_json as Record<string, unknown>).confidence as number) * 100
+                      )}%
                     </span>
                   </div>
                 )}
@@ -407,32 +481,17 @@ export default function TicketDetailPage() {
                     </p>
                   </div>
                 )}
-                {Array.isArray(
-                  (issue.ai_triage_json as Record<string, unknown>)
-                    .similarTickets
-                ) &&
-                  (
-                    (issue.ai_triage_json as Record<string, unknown>)
-                      .similarTickets as Array<{
-                      id: number;
-                      title: string;
-                      similarity: string;
-                    }>
-                  ).length > 0 && (
+                {Array.isArray((issue.ai_triage_json as Record<string, unknown>).similarTickets) &&
+                  ((issue.ai_triage_json as Record<string, unknown>).similarTickets as Array<{
+                    id: number; title: string; similarity: string;
+                  }>).length > 0 && (
                     <div className="pt-1 border-t border-gray-100">
                       <p className="text-gray-400 mb-1">Similar tickets:</p>
                       <ul className="space-y-1">
-                        {(
-                          (issue.ai_triage_json as Record<string, unknown>)
-                            .similarTickets as Array<{
-                            id: number;
-                            title: string;
-                            similarity: string;
-                          }>
-                        ).map((t) => (
-                          <li key={t.id} className="text-gray-600 truncate">
-                            #{t.id} {t.title}
-                          </li>
+                        {((issue.ai_triage_json as Record<string, unknown>).similarTickets as Array<{
+                          id: number; title: string; similarity: string;
+                        }>).map((t) => (
+                          <li key={t.id} className="text-gray-600 truncate">#{t.id} {t.title}</li>
                         ))}
                       </ul>
                     </div>

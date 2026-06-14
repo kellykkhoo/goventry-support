@@ -200,7 +200,7 @@ export default function TicketsPage() {
                         {issue.requester_name ?? "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge label={`Agency ${issue.agency_id}`} tone="gray" />
+                        <Badge label={issue.agency_code ?? issue.agency_name ?? `Agency ${issue.agency_id}`} tone="gray" />
                       </td>
                       <td className="px-4 py-3">
                         <Badge

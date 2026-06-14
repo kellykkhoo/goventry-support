@@ -9,6 +9,8 @@ export interface Issue {
   issue_type: string | null;
   source: string;
   agency_id: number;
+  agency_name: string | null;
+  agency_code: string | null;
   assignee_id: number | null;
   requester_name: string | null;
   requester_email: string | null;

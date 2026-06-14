@@ -20,6 +20,8 @@ def _issue_dict(i):
         "product": i.product.value if i.product else None,
         "issue_type": i.issue_type.value if i.issue_type else None,
         "source": i.source.value, "agency_id": i.agency_id,
+        "agency_name": i.agency.name if i.agency else None,
+        "agency_code": i.agency.code if i.agency else None,
         "assignee_id": i.assignee_id,
         "requester_name": i.requester_name, "requester_email": i.requester_email,
         "ai_triage_json": i.ai_triage_json, "ai_draft_reply": i.ai_draft_reply,

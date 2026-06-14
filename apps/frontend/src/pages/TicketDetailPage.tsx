@@ -166,7 +166,7 @@ export default function TicketDetailPage() {
           <Badge label={issue.source} tone="gray" />
           <Badge label={issue.status} tone="blue" />
           <span className="text-xs text-gray-400">
-            Created {relativeDate(issue.created_at)} · Agency {issue.agency_id}
+            Created {relativeDate(issue.created_at)} · {issue.agency_name ?? issue.agency_code ?? `Agency ${issue.agency_id}`}
           </span>
         </div>
       </div>

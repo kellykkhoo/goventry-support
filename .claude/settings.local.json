@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(security find-certificate *)",
+      "Read(//tmp/**)",
+      "Bash(pkill -f \"next start\")",
+      "Bash(curl -s -o /dev/null -w \"/issues/14 -> %{http_code}\\\\n\" http://localhost:3456/issues/14)",
+      "Bash(sed -i '' 's/^GOVENTRY_WEBHOOK_SECRET=.*/GOVENTRY_WEBHOOK_SECRET=\"\"/' /Users/ats-kellykhoo/Documents/pmtool/.env)",
+      "Bash(curl -s \"https://cf.app.entry.gov.sg/portal/static/js/once-OXLBUNF2.js\" -H \"User-Agent: Mozilla/5.0\")",
+      "Bash(curl -s -L \"https://form.gov.sg/api/v3/forms/6a2ce896092f346c78ccf1ff\" -H \"User-Agent: Mozilla/5.0\" -H \"Accept: application/json\" -o /tmp/formsg.json -w \"HTTP %{http_code}  %{size_download} bytes\\\\n\")",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:hermes-agent.nousresearch.com)"
+    ]
+  }
+}

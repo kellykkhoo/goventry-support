@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // SQLite for local dev. At deploy time switch provider to "postgresql"
+  // and point DATABASE_URL at a postgres:// URL — no schema changes needed.
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Issue {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String   @default("")
+  status      String   @default("Backlog") // Backlog | In Progress | Done | Cancelled
+  priority    String   @default("Medium") // Low | Medium | High | Urgent
+  product     String   @default("GovEntry") // GovEntry | GovSupply | GovRewards
+  issueType   String   @default("Feature Request") // Feature Request | Bug | User Guide Question | Registration Event
+
+  // Where the ticket came from
+  source    String  @default("web") // web | intake | formsg | goventry
+  sourceRef String? @unique // FormSG submissionId / GovEntry event UUID — idempotency key
+
+  // Requester (for replies)
+  requesterName  String?
+  requesterEmail String?
+
+  assignee   TeamMember? @relation(fields: [assigneeId], references: [id])
+  assigneeId Int?
+  agencies   IssueAgency[]
+  messages   TicketMessage[]
+
+  // AI triage output
+  aiTriageJson String? // full structured result from the agent
+  aiDraftReply String?
+  triagedAt    DateTime?
+
+  resolutionSummary String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Agency {
+  id     Int           @id @default(autoincrement())
+  code   String        @unique // MOH, NEA, MINDEF, HDB, LTA, MOM, MOE, MFA
+  name   String
+  issues IssueAgency[]
+}
+
+model IssueAgency {
+  issue    Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  issueId  Int
+  agency   Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId Int
+
+  @@id([issueId, agencyId])
+}
+
+model TeamMember {
+  id     Int     @id @default(autoincrement())
+  name   String
+  role   String
+  issues Issue[]
+}
+
+model TicketMessage {
+  id         Int      @id @default(autoincrement())
+  issue      Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  issueId    Int
+  direction  String // outbound (team -> requester) | inbound (requester -> team) | note
+  senderName String
+  body       String
+  createdAt  DateTime @default(now())
+}
+
+model KnowledgeEntry {
+  id         Int      @id @default(autoincrement())
+  title      String
+  content    String
+  sourceType String   @default("doc") // doc | resolved_ticket
+  issueId    Int? // link back to the resolved issue, if any
+  createdAt  DateTime @default(now())
+}

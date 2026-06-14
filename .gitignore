@@ -1,0 +1,10 @@
+.DS_Store
+.env
+.next/
+*.db
+*.db-journal
+*.key
+*.pem
+corp-ca.pem
+goventry-x25519-private.key
+node_modules/

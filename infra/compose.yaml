@@ -25,6 +25,7 @@ services:
       BOOTSTRAP_ADMIN_EMAIL: admin@goventry.gov.sg
       BOOTSTRAP_ADMIN_PASSWORD: changeme
       CORS_ORIGINS: '["http://localhost:5173","http://localhost"]'
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       - "5000:5000"
     depends_on:
@@ -33,6 +34,7 @@ services:
     command: >
       sh -c "uv run flask --app wsgi:app db upgrade &&
              uv run flask --app wsgi:app bootstrap-admin &&
+             uv run flask --app wsgi:app seed-demo --if-empty &&
              uv run gunicorn --bind 0.0.0.0:5000 --workers 2 wsgi:app"
 
   web:

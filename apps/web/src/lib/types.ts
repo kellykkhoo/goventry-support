@@ -58,3 +58,25 @@ export interface TeamMember {
   name: string;
   role_label: string;
 }
+
+export interface ProposedAction {
+  id: number;
+  action_type: "reply" | "status_change" | "assignment" | "tag_change" | "internal_note";
+  issue_id: number;
+  proposer: string;
+  proposed_payload: Record<string, unknown>;
+  final_payload: Record<string, unknown> | null;
+  required_tier: "auto" | "human" | "admin";
+  status: "pending" | "approved" | "rejected" | "executed" | "failed";
+  reviewer_id: number | null;
+  reject_reason: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
+export interface ApprovalListResponse {
+  items: ProposedAction[];
+  total: number;
+  page: number;
+  per_page: number;
+}

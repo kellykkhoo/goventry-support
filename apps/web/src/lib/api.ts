@@ -5,6 +5,8 @@ import type {
   TicketMessage,
   AgenciesResponse,
   TeamMember,
+  ProposedAction,
+  ApprovalListResponse,
 } from "./types";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
@@ -118,6 +120,24 @@ export const api = {
   },
   listTeam() {
     return request<TeamMember[]>("/team");
+  },
+  listApprovals(params: URLSearchParams) {
+    return request<ApprovalListResponse>(`/approvals?${params.toString()}`);
+  },
+  getApproval(id: number) {
+    return request<ProposedAction>(`/approvals/${id}`);
+  },
+  approveProposal(id: number, finalPayload?: Record<string, unknown>) {
+    return request<ProposedAction>(`/approvals/${id}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ final_payload: finalPayload ?? null }),
+    });
+  },
+  rejectProposal(id: number, reason: string) {
+    return request<ProposedAction>(`/approvals/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
   },
 };
 

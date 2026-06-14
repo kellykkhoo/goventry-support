@@ -1,5 +1,11 @@
 # apps/api/app/config.py
+from pathlib import Path
 from pydantic_settings import BaseSettings
+
+# Always read THIS app's own .env (apps/api/.env), never the legacy root .env
+# (the old Next.js/Prisma app keeps a Prisma-format DATABASE_URL there).
+# OS environment variables still take precedence over the file.
+_API_DIR = Path(__file__).resolve().parent.parent  # -> apps/api/
 
 
 class Config(BaseSettings):
@@ -9,4 +15,4 @@ class Config(BaseSettings):
     BOOTSTRAP_ADMIN_EMAIL: str = "admin@goventry.gov.sg"
     BOOTSTRAP_ADMIN_PASSWORD: str = "changeme"
 
-    model_config = {"env_file": ".env", "extra": "ignore"}
+    model_config = {"env_file": _API_DIR / ".env", "extra": "ignore"}

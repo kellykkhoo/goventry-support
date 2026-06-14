@@ -31,6 +31,9 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(team_bp)
     app.register_blueprint(seed_bp)
 
+    from .routes.approval import bp as approval_bp
+    app.register_blueprint(approval_bp)
+
     from .commands import register_commands
     register_commands(app)
 

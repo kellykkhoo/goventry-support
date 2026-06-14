@@ -2,10 +2,10 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings
 
-# Always read THIS app's own .env (apps/api/.env), never the legacy root .env
+# Always read THIS app's own .env (apps/backend/.env), never the legacy root .env
 # (the old Next.js/Prisma app keeps a Prisma-format DATABASE_URL there).
 # OS environment variables still take precedence over the file.
-_API_DIR = Path(__file__).resolve().parent.parent  # -> apps/api/
+_API_DIR = Path(__file__).resolve().parent.parent  # -> apps/backend/
 
 
 class Config(BaseSettings):

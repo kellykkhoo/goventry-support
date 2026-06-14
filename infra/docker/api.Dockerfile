@@ -6,9 +6,9 @@ WORKDIR /api
 
 RUN pip install --no-cache-dir uv
 
-COPY apps/api/pyproject.toml apps/api/uv.lock* ./
+COPY apps/backend/pyproject.toml apps/backend/uv.lock* ./
 RUN uv sync --frozen --no-dev
 
-COPY apps/api/ .
+COPY apps/backend/ .
 
 EXPOSE 5000

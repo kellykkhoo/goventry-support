@@ -3,9 +3,9 @@
 FROM node:22-slim AS build
 
 WORKDIR /web
-COPY apps/web/package*.json ./
+COPY apps/frontend/package*.json ./
 RUN npm ci
-COPY apps/web/ .
+COPY apps/frontend/ .
 RUN npm run build
 
 FROM nginx:alpine

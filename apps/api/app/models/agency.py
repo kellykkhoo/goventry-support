@@ -14,6 +14,9 @@ class Agency(db.Model):
     user_access: Mapped[list["UserAgencyAccess"]] = relationship(
         "UserAgencyAccess", back_populates="agency", cascade="all, delete-orphan"
     )
+    issues: Mapped[list["Issue"]] = relationship(  # noqa: F821
+        "Issue", back_populates="agency"
+    )
 
     def __repr__(self) -> str:
         return f"<Agency {self.code}>"

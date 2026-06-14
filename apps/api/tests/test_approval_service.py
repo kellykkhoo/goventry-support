@@ -132,7 +132,7 @@ def test_approve_admin_tier_blocked_for_pm(app, agencies, pm_user):
             approval_service.approve(pm, p.id)
 
 
-def test_approve_reply_sends_and_resolves(app, agencies):
+def test_approve_reply_sends_and_resolves(app, agencies, monkeypatch):
     from app.extensions import db
     from app.models.issue import Issue, Status
     from app.models.ticket_message import TicketMessage, Direction
@@ -142,7 +142,7 @@ def test_approve_reply_sends_and_resolves(app, agencies):
     import app.services.issue_service as isvc
 
     sent = {}
-    isvc.email_service.send = lambda **kw: sent.update(kw) or {"provider": "dev-console"}
+    monkeypatch.setattr(isvc.email_service, "send", lambda **kw: sent.update(kw) or {"provider": "dev-console"})
 
     with app.app_context():
         admin = _admin(db)

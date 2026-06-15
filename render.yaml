@@ -18,6 +18,7 @@ services:
     branch: main
     buildCommand: pip install uv && cd apps/backend && uv sync --frozen --no-dev
     startCommand: >-
+      unset VIRTUAL_ENV &&
       cd apps/backend &&
       uv run flask --app wsgi:app db upgrade &&
       uv run flask --app wsgi:app bootstrap-admin &&

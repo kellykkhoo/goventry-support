@@ -36,6 +36,10 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(approval_bp)
     app.register_blueprint(webhooks_bp)
 
+    @app.get("/")
+    def health():
+        return {"status": "ok"}
+
     from .commands import register_commands
     register_commands(app)
 

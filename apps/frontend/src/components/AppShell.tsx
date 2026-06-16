@@ -34,10 +34,14 @@ export default function AppShell() {
     refetchInterval: 30000,
   });
 
+  const isAdmin = user?.role === "Admin";
+
   const NAV_ITEMS = [
     { to: "/tickets", label: "Tickets" },
     { to: "/agencies", label: "Agencies" },
     { to: "/approvals", label: "Approvals", badge: pendingApprovals?.total },
+    { to: "/knowledge", label: "Knowledge Base" },
+    ...(isAdmin ? [{ to: "/reports", label: "Reports" }] : []),
   ];
 
   return (

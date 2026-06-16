@@ -7,6 +7,9 @@ import type {
   TeamMember,
   ProposedAction,
   ApprovalListResponse,
+  KnowledgeEntry,
+  KnowledgeListResponse,
+  DailyReport,
 } from "./types";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
@@ -138,6 +141,30 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ reason }),
     });
+  },
+
+  listKnowledge(params?: URLSearchParams) {
+    const qs = params ? `?${params.toString()}` : "";
+    return request<KnowledgeListResponse>(`/knowledge${qs}`);
+  },
+  createKnowledge(data: Partial<KnowledgeEntry>) {
+    return request<KnowledgeEntry>("/knowledge", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+  updateKnowledge(id: number, data: Partial<KnowledgeEntry>) {
+    return request<KnowledgeEntry>(`/knowledge/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+  deleteKnowledge(id: number) {
+    return request<{ ok: true }>(`/knowledge/${id}`, { method: "DELETE" });
+  },
+  getDailyReport(agencyId?: number) {
+    const qs = agencyId != null ? `?agency_id=${agencyId}` : "";
+    return request<DailyReport>(`/reports/daily${qs}`);
   },
 };
 

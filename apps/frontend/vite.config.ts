@@ -17,6 +17,8 @@ export default defineConfig({
       "/seed": "http://127.0.0.1:5000",
       "/approvals": "http://127.0.0.1:5000",
       "/webhooks": "http://127.0.0.1:5000",
+      "/knowledge": "http://127.0.0.1:5000",
+      "/reports": "http://127.0.0.1:5000",
     },
   },
 });

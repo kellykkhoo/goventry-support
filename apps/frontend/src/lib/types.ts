@@ -82,3 +82,29 @@ export interface ApprovalListResponse {
   page: number;
   per_page: number;
 }
+
+export interface KnowledgeEntry {
+  id: number;
+  title: string;
+  content: string;
+  source_type: "doc" | "resolved_ticket";
+  visibility: "agency_specific" | "global_sanitized" | "internal_admin_only";
+  agency_id: number | null;
+  issue_id: number | null;
+  created_at: string;
+}
+
+export interface KnowledgeListResponse {
+  items: KnowledgeEntry[];
+  total: number;
+}
+
+export interface DailyReport {
+  date: string;
+  agency_id: number | null;
+  new_today: number;
+  open_total: number;
+  by_status: Record<string, number>;
+  by_priority: Record<string, number>;
+  top_open: Array<{ id: number; title: string; priority: string; status: string }>;
+}

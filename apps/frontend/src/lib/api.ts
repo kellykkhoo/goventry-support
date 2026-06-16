@@ -10,6 +10,11 @@ import type {
   KnowledgeEntry,
   KnowledgeListResponse,
   DailyReport,
+  WeeklyReport,
+  HermesJobRun,
+  HermesReport,
+  SlackDeliveryLog,
+  DraftFeedback,
 } from "./types";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
@@ -165,6 +170,55 @@ export const api = {
   getDailyReport(agencyId?: number) {
     const qs = agencyId != null ? `?agency_id=${agencyId}` : "";
     return request<DailyReport>(`/reports/daily${qs}`);
+  },
+
+  getWeeklyReport(agencyId?: number) {
+    const qs = agencyId != null ? `?agency_id=${agencyId}` : "";
+    return request<WeeklyReport>(`/hermes/reports/weekly${qs}`);
+  },
+
+  getHermesActivity() {
+    return request<HermesJobRun[]>("/hermes/activity");
+  },
+
+  getHermesReports(report_type?: string) {
+    const qs = report_type ? `?report_type=${report_type}` : "";
+    return request<HermesReport[]>(`/hermes/reports${qs}`);
+  },
+
+  listSlackLogs() {
+    return request<SlackDeliveryLog[]>("/slack/delivery-logs");
+  },
+
+  sendToSlack(text: string, report_type: string = "custom") {
+    return request<{ ok: boolean; error?: string }>("/slack/reports/send", {
+      method: "POST",
+      body: JSON.stringify({ text, report_type }),
+    });
+  },
+
+  submitFeedback(data: {
+    issue_id: number;
+    proposed_action_id?: number | null;
+    original_draft: string;
+    feedback_category: string;
+    final_approved_version?: string | null;
+    reviewer_notes?: string | null;
+  }) {
+    return request<DraftFeedback>("/feedback", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  listFeedback(params?: URLSearchParams) {
+    const qs = params ? `?${params.toString()}` : "";
+    return request<DraftFeedback[]>(`/feedback${qs}`);
+  },
+
+  getFeedbackExamples(agencyId?: number) {
+    const qs = agencyId != null ? `?agency_id=${agencyId}` : "";
+    return request<Record<string, unknown>[]>(`/feedback/examples${qs}`);
   },
 };
 

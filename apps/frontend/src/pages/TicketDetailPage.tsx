@@ -10,6 +10,24 @@ import type { TicketMessage, ProposedAction } from "../lib/types";
 const WRITE_ROLES = new Set(["PM", "Product Ops", "Admin"]);
 const STATUS_OPTIONS = ["Backlog", "InProgress", "Done", "Cancelled"];
 
+const FEEDBACK_CATEGORIES: { key: string; label: string }[] = [
+  { key: "approved_as_is", label: "Approved as-is" },
+  { key: "edited_for_tone", label: "Edited: tone" },
+  { key: "edited_for_accuracy", label: "Edited: accuracy" },
+  { key: "edited_for_clarity", label: "Edited: clarity" },
+  { key: "edited_for_length", label: "Edited: length" },
+  { key: "missing_context", label: "Missing context" },
+  { key: "wrong_policy", label: "Wrong policy" },
+  { key: "wrong_agency_context", label: "Wrong agency context" },
+  { key: "wrong_product_context", label: "Wrong product context" },
+  { key: "too_vague", label: "Too vague" },
+  { key: "too_confident", label: "Too confident" },
+  { key: "too_technical", label: "Too technical" },
+  { key: "rejected", label: "Rejected" },
+];
+
+const BASE = import.meta.env.VITE_API_URL ?? "";
+
 function relativeDate(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -47,6 +65,10 @@ export default function TicketDetailPage() {
   const [approvalEditBodies, setApprovalEditBodies] = useState<Record<number, string>>({});
   const [approvalRejectReasons, setApprovalRejectReasons] = useState<Record<number, string>>({});
   const [rejectingApprovalId, setRejectingApprovalId] = useState<number | null>(null);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState<Set<number>>(new Set());
+  const [feedbackCategory, setFeedbackCategory] = useState<Record<number, string>>({});
+  const [feedbackNotes, setFeedbackNotes] = useState<Record<number, string>>({});
+  const [feedbackSending, setFeedbackSending] = useState<Record<number, boolean>>({});
 
   const {
     data: issue,
@@ -133,6 +155,29 @@ export default function TicketDetailPage() {
       setRejectingApprovalId(null);
     },
   });
+
+  async function submitFeedback(proposalId: number, originalDraft: string) {
+    const category = feedbackCategory[proposalId];
+    if (!category) return;
+    setFeedbackSending((prev) => ({ ...prev, [proposalId]: true }));
+    try {
+      const token = localStorage.getItem("goventry_token") ?? "";
+      await fetch(`${BASE}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          issue_id: issueId,
+          proposed_action_id: proposalId,
+          original_draft: originalDraft,
+          feedback_category: category,
+          reviewer_notes: feedbackNotes[proposalId] ?? "",
+        }),
+      });
+      setFeedbackSubmitted((prev) => new Set(prev).add(proposalId));
+    } finally {
+      setFeedbackSending((prev) => ({ ...prev, [proposalId]: false }));
+    }
+  }
 
   if (issueLoading) {
     return <div className="p-8 text-sm text-gray-400 text-center">Loading ticket…</div>;
@@ -344,6 +389,53 @@ export default function TicketDetailPage() {
                           Confirm reject
                         </button>
                       </div>
+                    )}
+                    {/* Draft feedback panel — show for reply proposals */}
+                    {p.action_type === "reply" && !feedbackSubmitted.has(p.id) && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <p className="text-xs font-medium text-gray-500 mb-2">How was this draft?</p>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {FEEDBACK_CATEGORIES.map((cat) => (
+                            <button
+                              key={cat.key}
+                              onClick={() =>
+                                setFeedbackCategory((prev) => ({
+                                  ...prev,
+                                  [p.id]: prev[p.id] === cat.key ? "" : cat.key,
+                                }))
+                              }
+                              className={`px-2 py-1 text-xs rounded-full border transition-colors ${
+                                feedbackCategory[p.id] === cat.key
+                                  ? "bg-blue-600 text-white border-blue-600"
+                                  : "text-gray-600 border-gray-200 hover:border-blue-400"
+                              }`}
+                            >
+                              {cat.label}
+                            </button>
+                          ))}
+                        </div>
+                        <textarea
+                          value={feedbackNotes[p.id] ?? ""}
+                          onChange={(e) =>
+                            setFeedbackNotes((prev) => ({ ...prev, [p.id]: e.target.value }))
+                          }
+                          rows={2}
+                          placeholder="Any notes about this draft? (optional)"
+                          className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 mb-2"
+                        />
+                        <button
+                          onClick={() =>
+                            submitFeedback(p.id, (p.proposed_payload.body as string) ?? "")
+                          }
+                          disabled={!feedbackCategory[p.id] || feedbackSending[p.id]}
+                          className="px-3 py-1 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-40 transition-colors"
+                        >
+                          {feedbackSending[p.id] ? "Saving…" : "Submit feedback"}
+                        </button>
+                      </div>
+                    )}
+                    {feedbackSubmitted.has(p.id) && (
+                      <p className="mt-2 text-xs text-green-600">Feedback saved.</p>
                     )}
                   </div>
                 );

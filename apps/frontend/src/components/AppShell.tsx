@@ -42,6 +42,7 @@ export default function AppShell() {
     { to: "/approvals", label: "Approvals", badge: pendingApprovals?.total },
     { to: "/knowledge", label: "Knowledge Base" },
     ...(isAdmin ? [{ to: "/reports", label: "Reports" }] : []),
+    ...(isAdmin ? [{ to: "/hermes", label: "Hermes" }] : []),
   ];
 
   return (

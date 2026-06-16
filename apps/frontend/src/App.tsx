@@ -11,6 +11,7 @@ import AgenciesPage from "./pages/AgenciesPage";
 import ApprovalQueuePage from "./pages/ApprovalQueuePage";
 import KnowledgePage from "./pages/KnowledgePage";
 import ReportsPage from "./pages/ReportsPage";
+import HermesActivityPage from "./pages/HermesActivityPage";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ export default function App() {
               <Route path="approvals" element={<ApprovalQueuePage />} />
               <Route path="knowledge" element={<KnowledgePage />} />
               <Route path="reports" element={<ReportsPage />} />
+              <Route path="hermes" element={<HermesActivityPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

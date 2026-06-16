@@ -108,3 +108,57 @@ export interface DailyReport {
   by_priority: Record<string, number>;
   top_open: Array<{ id: number; title: string; priority: string; status: string }>;
 }
+
+export interface WeeklyReport {
+  week_start: string;
+  week_end: string;
+  agency_id: number | null;
+  new_this_week: number;
+  resolved_this_week: number;
+  open_total: number;
+  by_status: Record<string, number>;
+  by_priority: Record<string, number>;
+  top_open: Array<{ id: number; title: string; priority: string; status: string }>;
+}
+
+export interface HermesJobRun {
+  id: number;
+  job_name: string;
+  issue_id: number | null;
+  status: string;
+  result_summary: string | null;
+  error_message: string | null;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export interface HermesReport {
+  id: number;
+  report_type: string;
+  agency_id: number | null;
+  slack_sent: boolean;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface SlackDeliveryLog {
+  id: number;
+  report_type: string;
+  channel_hint: string | null;
+  status: string;
+  error_message: string | null;
+  payload_preview: string | null;
+  created_at: string;
+}
+
+export interface DraftFeedback {
+  id: number;
+  issue_id: number;
+  proposed_action_id: number | null;
+  feedback_category: string;
+  reviewer_notes: string | null;
+  ticket_category: string | null;
+  product_area: string | null;
+  agency_id: number | null;
+  created_at: string;
+}

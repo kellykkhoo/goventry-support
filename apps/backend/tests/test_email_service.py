@@ -1,3 +1,44 @@
+def test_smtp_when_env_present(app, monkeypatch):
+    import app.services.email_service as mod
+    import smtplib
+    for k in ("MS_TENANT_ID", "POSTMAN_API_KEY"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_USER", "user@example.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "secret")
+    monkeypatch.setenv("SMTP_PORT", "587")
+
+    calls = {}
+
+    class FakeSMTP:
+        def __init__(self, host, port):
+            calls["host"] = host
+            calls["port"] = port
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def starttls(self):
+            calls["starttls"] = True
+
+        def login(self, user, password):
+            calls["login"] = (user, password)
+
+        def sendmail(self, sender, to, msg):
+            calls["sendmail"] = (sender, to)
+
+    monkeypatch.setattr(mod.smtplib, "SMTP", FakeSMTP)
+    with app.app_context():
+        result = mod.email_service.send(to="recipient@gov.sg", subject="Test", body="Hello")
+    assert result["provider"] == "smtp"
+    assert result["to"] == "recipient@gov.sg"
+    assert calls.get("sendmail") is not None
+    assert calls["sendmail"][1] == "recipient@gov.sg"
+
+
 def test_dev_console_when_no_provider(app, capsys, monkeypatch):
     for k in ("MS_TENANT_ID", "POSTMAN_API_KEY"):
         monkeypatch.delenv(k, raising=False)

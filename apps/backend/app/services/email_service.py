@@ -2,6 +2,8 @@
 # Python port of src/lib/email.ts — provider auto-select by env vars present.
 import os
 import sys
+import smtplib
+from email.message import EmailMessage
 import httpx
 
 
@@ -9,6 +11,8 @@ class EmailService:
     def send(self, to: str, subject: str, body: str, reply_to: str | None = None) -> dict:
         if all(os.getenv(k) for k in ("MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "MS_SENDER_MAILBOX")):
             return self._send_m365(to, subject, body, reply_to)
+        if all(os.getenv(k) for k in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD")):
+            return self._send_smtp(to, subject, body, reply_to)
         if os.getenv("POSTMAN_API_KEY") and os.getenv("POSTMAN_FROM"):
             return self._send_postman(to, subject, body, reply_to)
         return self._dev_console(to, subject, body)
@@ -45,6 +49,27 @@ class EmailService:
         )
         res.raise_for_status()
         return {"provider": "m365", "to": to}
+
+    def _send_smtp(self, to, subject, body, reply_to) -> dict:
+        host = os.environ["SMTP_HOST"]
+        port = int(os.getenv("SMTP_PORT", "587"))
+        user = os.environ["SMTP_USER"]
+        password = os.environ["SMTP_PASSWORD"]
+        sender = os.getenv("SMTP_FROM", user)
+
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = sender
+        msg["To"] = to
+        if reply_to:
+            msg["Reply-To"] = reply_to
+        msg.set_content(body)
+
+        with smtplib.SMTP(host, port) as smtp:
+            smtp.starttls()
+            smtp.login(user, password)
+            smtp.sendmail(sender, to, msg.as_string())
+        return {"provider": "smtp", "to": to}
 
     def _send_postman(self, to, subject, body, reply_to) -> dict:
         res = httpx.post(

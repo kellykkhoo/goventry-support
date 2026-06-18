@@ -38,6 +38,7 @@ def create_app(config: Config | None = None) -> Flask:
     from .routes.hermes import bp as hermes_bp
     from .routes.slack import bp as slack_bp
     from .routes.feedback import bp as feedback_bp
+    from .routes.gitlab import bp as gitlab_bp
     app.register_blueprint(approval_bp)
     app.register_blueprint(webhooks_bp)
     app.register_blueprint(knowledge_bp)
@@ -45,6 +46,7 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(hermes_bp)
     app.register_blueprint(slack_bp)
     app.register_blueprint(feedback_bp)
+    app.register_blueprint(gitlab_bp)
 
     @app.get("/")
     def health():
@@ -86,6 +88,7 @@ def create_app(config: Config | None = None) -> Flask:
         Role, User, Agency, UserAgencyAccess, TeamMember,
         Issue, IssueAgency, TicketMessage, KnowledgeEntry, AuditLog,
         ProposedAction, HermesReport, HermesJobRun, SlackDeliveryLog, DraftFeedback,
+        GitLabIssueProposal,
     )
 
     return app

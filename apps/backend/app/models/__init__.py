@@ -12,6 +12,7 @@ from .hermes_report import HermesReport
 from .hermes_job_run import HermesJobRun
 from .slack_delivery_log import SlackDeliveryLog
 from .draft_feedback import DraftFeedback
+from .gitlab_issue_proposal import GitLabIssueProposal
 
 __all__ = [
     "Role", "User", "Agency", "UserAgencyAccess", "TeamMember",
@@ -19,4 +20,5 @@ __all__ = [
     "TicketMessage", "Direction", "KnowledgeEntry", "SourceType", "Visibility", "AuditLog",
     "ProposedAction", "ActionType", "ProposalStatus", "ApprovalTier",
     "HermesReport", "HermesJobRun", "SlackDeliveryLog", "DraftFeedback",
+    "GitLabIssueProposal",
 ]

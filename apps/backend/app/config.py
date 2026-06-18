@@ -15,5 +15,7 @@ class Config(BaseSettings):
     BOOTSTRAP_ADMIN_EMAIL: str = "admin@goventry.gov.sg"
     BOOTSTRAP_ADMIN_PASSWORD: str = "changeme"
     SLACK_WEBHOOK_URL: str = ""
+    GITLAB_TOKEN: str = ""
+    GITLAB_BASE_URL: str = "https://sgts.gitlab-dedicated.com"
 
     model_config = {"env_file": _API_DIR / ".env", "extra": "ignore"}

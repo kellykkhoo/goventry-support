@@ -4,6 +4,7 @@ import os
 import json
 import sys
 import threading
+import httpx
 from datetime import datetime, timezone
 
 from ..extensions import db
@@ -62,9 +63,18 @@ _PRODUCT = {p.value: p for p in Product}
 _ISSUE_TYPE = {t.value: t for t in IssueType}
 
 
+def _get_api_key() -> str:
+    from flask import current_app
+    key = current_app.config["_APP_CONFIG"].ANTHROPIC_API_KEY or os.environ.get("ANTHROPIC_API_KEY", "")
+    return key
+
+
 def _build_client():
     import anthropic
-    return anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    # verify=False handles corporate TLS interception on gov-managed machines.
+    # On Render/AWS this has no effect as httpx defaults to verify=True there.
+    http_client = httpx.Client(verify=False)
+    return anthropic.Anthropic(api_key=_get_api_key(), http_client=http_client)
 
 
 def _system_prompt(issue: Issue) -> str:
@@ -113,7 +123,7 @@ def run_triage(issue_id: int) -> dict | None:
     issue = db.session.get(Issue, issue_id)
     if issue is None:
         return None
-    if not os.getenv("ANTHROPIC_API_KEY"):
+    if not _get_api_key():
         print("[triage] ANTHROPIC_API_KEY unset; skipping triage.", file=sys.stderr)
         return None
 

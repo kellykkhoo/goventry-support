@@ -14,6 +14,7 @@ class Config(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
     BOOTSTRAP_ADMIN_EMAIL: str = "admin@goventry.gov.sg"
     BOOTSTRAP_ADMIN_PASSWORD: str = "changeme"
+    ANTHROPIC_API_KEY: str = ""
     SLACK_WEBHOOK_URL: str = ""
     GITLAB_TOKEN: str = ""
     GITLAB_BASE_URL: str = "https://sgts.gitlab-dedicated.com"

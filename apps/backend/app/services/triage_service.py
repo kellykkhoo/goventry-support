@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from ..extensions import db
 from ..models.issue import Issue, Priority, Product, IssueType
 from .knowledge_service import knowledge_service
+from .gitlab_service import gitlab_service
 from ..models.proposed_action import ActionType
 from .approval_service import approval_service
 
@@ -30,11 +31,30 @@ OUTPUT_SCHEMA_HINT = """Return ONLY valid JSON (no prose, no markdown fences) ma
 
 TOOLS = [
     {"name": "search_knowledge_base",
-     "description": "Search the knowledge base for relevant articles.",
+     "description": "Search the internal knowledge base for relevant support articles.",
      "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}},
     {"name": "search_tickets",
      "description": "Search resolved tickets for similar past issues.",
      "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}},
+    {"name": "search_gitlab_docs",
+     "description": (
+         "Search the live product source repositories (GovEntry, GovRewards, GovSupply) "
+         "for relevant documentation, API specs, or code context. "
+         "Use this when the ticket mentions a specific feature, API, webhook, or error "
+         "that may be documented in the product repos."
+     ),
+     "input_schema": {
+         "type": "object",
+         "properties": {
+             "query": {"type": "string", "description": "Search term or phrase"},
+             "repo": {
+                 "type": "string",
+                 "enum": ["all", "goventry", "govrewards", "govsupply"],
+                 "description": "Which repo to search. Default: all",
+             },
+         },
+         "required": ["query"],
+     }},
 ]
 
 _PRIORITY = {p.value: p for p in Priority}
@@ -52,6 +72,12 @@ def _system_prompt(issue: Issue) -> str:
         "You are GovEntry Support's triage agent. Classify the ticket, find duplicates, "
         "and draft a reply for human review.\n"
         "Products: GovEntry, GovSupply, GovRewards.\n"
+        "Before drafting a reply, use your tools to gather context:\n"
+        "1. search_knowledge_base — check internal support articles.\n"
+        "2. search_tickets — check if a similar issue was resolved before.\n"
+        "3. search_gitlab_docs — search the live product repos for relevant docs, "
+        "API specs, or code. Use this whenever the ticket mentions a specific feature, "
+        "webhook, API endpoint, or error message.\n"
         f"{OUTPUT_SCHEMA_HINT}"
     )
 
@@ -62,6 +88,13 @@ def _run_tool(name: str, tool_input: dict, agency_id: int) -> list:
         return knowledge_service.search_knowledge_base(query, agency_id)
     if name == "search_tickets":
         return knowledge_service.search_tickets(query, agency_id)
+    if name == "search_gitlab_docs":
+        repo_param = tool_input.get("repo", "all")
+        repos = None if repo_param == "all" else [repo_param]
+        try:
+            return gitlab_service.search_docs(query, repos)
+        except Exception:  # noqa: BLE001
+            return []
     return []
 
 

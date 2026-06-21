@@ -1,0 +1,5 @@
+{
+  "framework": "container",
+  "handle": "pmtool/goventry-support",
+  "port": 3000
+}

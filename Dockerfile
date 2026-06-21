@@ -12,4 +12,4 @@ RUN pip install --no-cache-dir .
 
 EXPOSE 3000
 
-CMD ["gunicorn", "wsgi:app", "--bind", "0.0.0.0:3000", "--workers", "2", "--timeout", "120"]
+CMD ["sh", "-c", "flask --app wsgi db upgrade && gunicorn wsgi:app --bind 0.0.0.0:3000 --workers 2 --timeout 120"]

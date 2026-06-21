@@ -48,9 +48,22 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(feedback_bp)
     app.register_blueprint(gitlab_bp)
 
-    @app.get("/")
+    @app.get("/health")
     def health():
         return {"status": "ok"}
+
+    import os
+    from flask import send_from_directory
+
+    _FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static_frontend")
+
+    @app.route("/", defaults={"path": ""})
+    @app.route("/<path:path>")
+    def serve_frontend(path):
+        file_path = os.path.join(_FRONTEND_DIR, path)
+        if path and os.path.exists(file_path):
+            return send_from_directory(_FRONTEND_DIR, path)
+        return send_from_directory(_FRONTEND_DIR, "index.html")
 
     from .commands import register_commands
     register_commands(app)

@@ -4,21 +4,68 @@ import httpx
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 
-PUBLIC_DOCS: dict[str, list[str]] = {
+PUBLIC_DOCS: dict[str, list[dict]] = {
     "GovEntry": [
-        "https://docs.developer.tech.gov.sg/docs/02-integration-with-goventry/",
-        "https://docs.developer.tech.gov.sg/docs/03-webhook-specifications/",
-        "https://docs.developer.tech.gov.sg/docs/04-api-specifications/",
+        {
+            "url": "https://docs.developer.tech.gov.sg/docs/02-integration-with-goventry/",
+            "title": "[GovEntry] Integration Guide",
+            "description": (
+                "Official GovEntry integration guide. Covers onboarding requirements, "
+                "how government agencies integrate with GovEntry for event registration management, "
+                "authentication setup, agency configuration, and step-by-step integration instructions."
+            ),
+        },
+        {
+            "url": "https://docs.developer.tech.gov.sg/docs/03-webhook-specifications/",
+            "title": "[GovEntry] Webhook Specifications",
+            "description": (
+                "GovEntry webhook specifications. Covers supported event types (registration, "
+                "cancellation, attendance, waitlist), webhook payload formats, signature verification "
+                "using HMAC, retry policies, endpoint requirements, and error handling."
+            ),
+        },
+        {
+            "url": "https://docs.developer.tech.gov.sg/docs/04-api-specifications/",
+            "title": "[GovEntry] API Specifications",
+            "description": (
+                "GovEntry API specifications. Covers authentication methods, available REST endpoints, "
+                "request and response payload formats, pagination, rate limits, error codes, "
+                "and sample API calls for event and registration management."
+            ),
+        },
     ],
     "GovRewards": [
-        "https://docs.developer.tech.gov.sg/docs/govrewards-user-guide/?product=GovRewards",
+        {
+            "url": "https://docs.developer.tech.gov.sg/docs/govrewards-user-guide/?product=GovRewards",
+            "title": "[GovRewards] User Guide",
+            "description": (
+                "Official GovRewards user guide. Covers the rewards points system, how civil servants "
+                "earn and redeem points, participating merchants and partner categories, account "
+                "management, agency administrator functions, and common troubleshooting steps."
+            ),
+        },
     ],
     "GovSupply": [
-        "https://docs.developer.tech.gov.sg/docs/govsupply/?product=GovSupply",
+        {
+            "url": "https://docs.developer.tech.gov.sg/docs/govsupply/?product=GovSupply",
+            "title": "[GovSupply] Documentation",
+            "description": (
+                "Official GovSupply documentation. Covers government procurement workflows, "
+                "product catalogue browsing, order placement and tracking, supplier management, "
+                "agency-specific supply chain processes, and GovSupply system administration."
+            ),
+        },
     ],
 }
 
+# Flat list of (url, title) for use in triage system prompt
+PUBLIC_DOC_URLS: dict[str, list[str]] = {
+    product: [d["url"] for d in docs]
+    for product, docs in PUBLIC_DOCS.items()
+}
+
 _SKIP_TAGS = {"script", "style", "nav", "header", "footer", "aside"}
+_JS_LOADING_SIGNALS = {"please wait", "loading...", "javascript", "enable javascript"}
 
 
 class _TextExtractor(HTMLParser):
@@ -45,31 +92,10 @@ class _TextExtractor(HTMLParser):
         return re.sub(r"\s+", " ", " ".join(self._parts)).strip()
 
 
-def _extract_sub_links(html: str, base_url: str) -> list[str]:
-    parsed = urlparse(base_url)
-    base_path = re.sub(r"\?.*", "", parsed.path).rstrip("/")
-    seen: set[str] = set()
-    results: list[str] = []
-    for href in re.findall(r'href=["\']([^"\'#]+)["\']', html):
-        full = urljoin(base_url, href.split("?")[0])
-        p = urlparse(full)
-        if (
-            p.netloc == parsed.netloc
-            and p.path.rstrip("/") != base_path
-            and p.path.startswith(base_path + "/")
-            and full not in seen
-        ):
-            seen.add(full)
-            results.append(full)
-        if len(results) >= 30:
-            break
-    return results
-
-
-def _html_to_text(html: str) -> str:
-    parser = _TextExtractor()
-    parser.feed(html)
-    return parser.get_text()
+def _is_js_shell(text: str) -> bool:
+    """Return True if the fetched page is a JS loading shell with no real content."""
+    lower = text.lower()
+    return len(text) < 500 or any(sig in lower for sig in _JS_LOADING_SIGNALS)
 
 
 def fetch_doc_content(url: str) -> str:
@@ -78,15 +104,29 @@ def fetch_doc_content(url: str) -> str:
         with httpx.Client(verify=False, timeout=15, headers={"User-Agent": "GovEntrySupport/1.0"}) as client:
             resp = client.get(url, follow_redirects=True)
             resp.raise_for_status()
-            return _html_to_text(resp.text)[:8000]
+            parser = _TextExtractor()
+            parser.feed(resp.text)
+            text = parser.get_text()
+            if _is_js_shell(text):
+                # Find the matching predefined entry and return its description instead
+                for docs in PUBLIC_DOCS.values():
+                    for entry in docs:
+                        if entry["url"].split("?")[0] == url.split("?")[0]:
+                            return (
+                                f"{entry['description']}\n\n"
+                                f"Official docs URL: {entry['url']}\n"
+                                "(Note: full page content requires a browser — direct users to this URL.)"
+                            )
+                return f"Official documentation at: {url}\n(Page requires JavaScript to render full content.)"
+            return text[:8000]
     except Exception as exc:
         return f"[Error fetching {url}: {exc}]"
 
 
 def seed_all_docs(db) -> list[str]:
     """
-    Fetch all PUBLIC_DOCS URLs plus one level of sub-pages, store as KnowledgeEntries.
-    Replaces previously seeded global doc entries to stay current.
+    Upsert KB entries for all PUBLIC_DOCS. For JS-rendered sites, stores the
+    predefined description + URL so the triage agent can reference them.
     Returns list of entry titles created.
     """
     from ..models.knowledge_entry import KnowledgeEntry, SourceType, Visibility
@@ -104,47 +144,44 @@ def seed_all_docs(db) -> list[str]:
     db.session.flush()
 
     created: list[str] = []
+
     with httpx.Client(
         verify=False, timeout=20, follow_redirects=True,
         headers={"User-Agent": "GovEntrySupport/1.0"},
     ) as client:
-        for product, urls in PUBLIC_DOCS.items():
-            for base_url in urls:
-                try:
-                    resp = client.get(base_url)
-                    resp.raise_for_status()
-                    html = resp.text
-                except Exception as exc:
-                    created.append(f"[ERROR] {base_url}: {exc}")
-                    continue
+        for product, docs in PUBLIC_DOCS.items():
+            for doc in docs:
+                url = doc["url"]
+                predefined_title = doc["title"]
+                predefined_desc = doc["description"]
 
-                text = _html_to_text(html)
-                section = re.sub(r"\?.*", "", base_url).split("/docs/")[-1].strip("/") or "index"
+                # Try fetching live content; fall back to predefined description if JS shell
+                live_content = None
+                try:
+                    resp = client.get(url)
+                    resp.raise_for_status()
+                    parser = _TextExtractor()
+                    parser.feed(resp.text)
+                    text = parser.get_text()
+                    if not _is_js_shell(text):
+                        live_content = text[:6000]
+                except Exception:
+                    pass
+
+                content = (
+                    f"Source: {url}\n\n{live_content}"
+                    if live_content
+                    else f"Source: {url}\n\n{predefined_desc}"
+                )
+
                 entry = KnowledgeEntry(
-                    title=f"[{product}] {section}",
-                    content=f"Source: {base_url}\n\n{text[:6000]}",
+                    title=predefined_title,
+                    content=content,
                     source_type=SourceType.doc,
                     visibility=Visibility.global_sanitized,
                 )
                 db.session.add(entry)
-                created.append(entry.title)
-
-                for sub_url in _extract_sub_links(html, base_url):
-                    try:
-                        sub_resp = client.get(sub_url)
-                        sub_resp.raise_for_status()
-                        sub_text = _html_to_text(sub_resp.text)
-                    except Exception:
-                        continue
-                    sub_section = sub_url.split("/docs/")[-1].strip("/")
-                    sub_entry = KnowledgeEntry(
-                        title=f"[{product}] {sub_section}",
-                        content=f"Source: {sub_url}\n\n{sub_text[:6000]}",
-                        source_type=SourceType.doc,
-                        visibility=Visibility.global_sanitized,
-                    )
-                    db.session.add(sub_entry)
-                    created.append(sub_entry.title)
+                created.append(predefined_title)
 
     db.session.commit()
     return created

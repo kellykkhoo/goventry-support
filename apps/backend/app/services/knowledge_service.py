@@ -94,6 +94,7 @@ class KnowledgeService:
         user,
         search: str | None = None,
         visibility: str | None = None,
+        source_type: str | None = None,
         agency_id_filter: int | None = None,
     ) -> list[KnowledgeEntry]:
         q = db.select(KnowledgeEntry)
@@ -116,6 +117,8 @@ class KnowledgeService:
             )
         if visibility:
             q = q.where(KnowledgeEntry.visibility == Visibility(visibility))
+        if source_type:
+            q = q.where(KnowledgeEntry.source_type == SourceType(source_type))
         if agency_id_filter is not None:
             q = q.where(KnowledgeEntry.agency_id == agency_id_filter)
         return list(db.session.scalars(q.order_by(KnowledgeEntry.created_at.desc())).all())

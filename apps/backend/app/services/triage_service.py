@@ -11,7 +11,7 @@ from ..extensions import db
 from ..models.issue import Issue, Priority, Product, IssueType
 from .knowledge_service import knowledge_service
 from .gitlab_service import gitlab_service
-from .docs_importer import PUBLIC_DOCS, fetch_doc_content
+from .docs_importer import PUBLIC_DOC_URLS, fetch_doc_content
 from ..models.proposed_action import ActionType
 from .approval_service import approval_service
 
@@ -64,7 +64,7 @@ TOOLS = [
          "Known doc URLs:\n"
          + "\n".join(
              f"  {product}: " + ", ".join(urls)
-             for product, urls in PUBLIC_DOCS.items()
+             for product, urls in PUBLIC_DOC_URLS.items()
          )
      ),
      "input_schema": {
@@ -98,7 +98,7 @@ def _build_client():
 def _system_prompt(issue: Issue) -> str:
     doc_list = "\n".join(
         f"  {product}: " + " | ".join(urls)
-        for product, urls in PUBLIC_DOCS.items()
+        for product, urls in PUBLIC_DOC_URLS.items()
     )
     return (
         "You are GovEntry Support's triage agent. Classify the ticket, find duplicates, "

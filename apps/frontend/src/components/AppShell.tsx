@@ -4,9 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 
-function NavLink({ to, label, badge }: { to: string; label: string; badge?: number }) {
+function NavLink({ to, label, badge, exact = false }: { to: string; label: string; badge?: number; exact?: boolean }) {
   const { pathname } = useLocation();
-  const active = pathname.startsWith(to);
+  const active = exact ? pathname === to : pathname.startsWith(to);
   return (
     <Link
       to={to}
@@ -24,8 +24,25 @@ function NavLink({ to, label, badge }: { to: string; label: string; badge?: numb
   );
 }
 
+function SubNavLink({ to, label }: { to: string; label: string }) {
+  const { pathname } = useLocation();
+  const active = pathname === to;
+  return (
+    <Link
+      to={to}
+      className={`flex items-center pl-6 pr-3 py-1.5 rounded text-xs transition-colors ${
+        active ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-700 hover:text-white"
+      }`}
+    >
+      <span className="mr-2 opacity-50">›</span>
+      {label}
+    </Link>
+  );
+}
+
 export default function AppShell() {
   const { user, logout } = useAuth();
+  const { pathname } = useLocation();
 
   const { data: pendingApprovals } = useQuery({
     queryKey: ["approvals", "pending-count"],
@@ -35,15 +52,7 @@ export default function AppShell() {
   });
 
   const isAdmin = user?.role === "Admin";
-
-  const NAV_ITEMS = [
-    { to: "/tickets", label: "Tickets" },
-    { to: "/agencies", label: "Agencies" },
-    { to: "/approvals", label: "Approvals", badge: pendingApprovals?.total },
-    { to: "/knowledge", label: "Knowledge Base" },
-    ...(isAdmin ? [{ to: "/reports", label: "Reports" }] : []),
-    ...(isAdmin ? [{ to: "/hermes", label: "Hermes" }] : []),
-  ];
+  const kbActive = pathname.startsWith("/knowledge");
 
   return (
     <div className="min-h-screen flex">
@@ -53,9 +62,21 @@ export default function AppShell() {
           <p className="text-gray-400 text-xs mt-0.5">Internal portal</p>
         </div>
         <nav className="flex-1 p-3 space-y-0.5">
-          {NAV_ITEMS.map((item) => (
-            <NavLink key={item.to} {...item} />
-          ))}
+          <NavLink to="/tickets" label="Tickets" />
+          <NavLink to="/agencies" label="Agencies" />
+          <NavLink to="/approvals" label="Approvals" badge={pendingApprovals?.total} />
+
+          {/* Knowledge Base with sub-nav */}
+          <NavLink to="/knowledge" label="Knowledge Base" exact />
+          {kbActive && (
+            <div className="space-y-0.5 mt-0.5">
+              <SubNavLink to="/knowledge/guides" label="User Guides" />
+              <SubNavLink to="/knowledge/tickets" label="Resolved Tickets" />
+            </div>
+          )}
+
+          {isAdmin && <NavLink to="/reports" label="Reports" />}
+          {isAdmin && <NavLink to="/hermes" label="Hermes" />}
         </nav>
         <div className="p-4 border-t border-gray-700">
           <p className="text-gray-200 text-sm font-medium truncate">{user?.name}</p>

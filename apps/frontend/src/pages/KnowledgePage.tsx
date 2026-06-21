@@ -141,7 +141,11 @@ function ArticleForm({ onClose, onSaved }: ArticleFormProps) {
   );
 }
 
-export default function KnowledgePage() {
+interface KnowledgePageProps {
+  sourceType?: "doc" | "resolved_ticket";
+}
+
+export default function KnowledgePage({ sourceType }: KnowledgePageProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const canEdit = user?.role != null && EDITABLE_ROLES.includes(user.role);
@@ -182,6 +186,7 @@ export default function KnowledgePage() {
   const params = new URLSearchParams();
   if (search) params.set("search", search);
   if (visibility) params.set("visibility", visibility);
+  if (sourceType) params.set("source_type", sourceType);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["knowledge", params.toString()],
@@ -215,7 +220,9 @@ export default function KnowledgePage() {
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Knowledge Base</h1>
+          <h1 className="text-xl font-semibold text-gray-900">
+            {sourceType === "doc" ? "User Guides" : sourceType === "resolved_ticket" ? "Resolved Tickets" : "Knowledge Base"}
+          </h1>
           {data && (
             <p className="text-sm text-gray-500 mt-0.5">{data.total} articles</p>
           )}

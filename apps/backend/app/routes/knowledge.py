@@ -47,6 +47,7 @@ def list_entries():
         _user(),
         search=args.get("search"),
         visibility=args.get("visibility"),
+        source_type=args.get("source_type"),
         agency_id_filter=agency_id_filter,
     )
     items = [_entry_dict(e) for e in entries]

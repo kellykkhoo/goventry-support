@@ -36,6 +36,8 @@ export default function App() {
               <Route path="agencies" element={<AgenciesPage />} />
               <Route path="approvals" element={<ApprovalQueuePage />} />
               <Route path="knowledge" element={<KnowledgePage />} />
+              <Route path="knowledge/guides" element={<KnowledgePage sourceType="doc" />} />
+              <Route path="knowledge/tickets" element={<KnowledgePage sourceType="resolved_ticket" />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="hermes" element={<HermesActivityPage />} />
             </Route>

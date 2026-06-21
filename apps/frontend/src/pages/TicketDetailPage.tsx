@@ -67,7 +67,7 @@ export default function TicketDetailPage() {
   const [rejectingApprovalId, setRejectingApprovalId] = useState<number | null>(null);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState<Set<number>>(new Set());
   const [feedbackCategory, setFeedbackCategory] = useState<Record<number, string>>({});
-  const [feedbackNotes, setFeedbackNotes] = useState<Record<number, string>>({});
+  const [feedbackNotes] = useState<Record<number, string>>({});
   const [feedbackSending, setFeedbackSending] = useState<Record<number, boolean>>({});
   const [showNoteCompose, setShowNoteCompose] = useState(false);
   const [showManualReply, setShowManualReply] = useState(false);

@@ -49,7 +49,8 @@ def list_entries():
         visibility=args.get("visibility"),
         agency_id_filter=agency_id_filter,
     )
-    return jsonify([_entry_dict(e) for e in entries])
+    items = [_entry_dict(e) for e in entries]
+    return jsonify({"total": len(items), "items": items})
 
 
 @bp.post("")

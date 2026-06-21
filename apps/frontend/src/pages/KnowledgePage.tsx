@@ -152,7 +152,24 @@ export default function KnowledgePage() {
   const [visibility, setVisibility] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedResult, setSeedResult] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function handleSeedDocs() {
+    if (!confirm("This will fetch all GovEntry, GovRewards, and GovSupply official documentation pages and import them into the knowledge base. Existing imported docs will be replaced. Continue?")) return;
+    setSeeding(true);
+    setSeedResult(null);
+    try {
+      const res = await api.seedDocs();
+      setSeedResult(`Imported ${res.count} doc pages successfully.`);
+      queryClient.invalidateQueries({ queryKey: ["knowledge"] });
+    } catch (err) {
+      setSeedResult(`Error: ${(err as Error).message}`);
+    } finally {
+      setSeeding(false);
+    }
+  }
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -203,15 +220,33 @@ export default function KnowledgePage() {
             <p className="text-sm text-gray-500 mt-0.5">{data.total} articles</p>
           )}
         </div>
-        {canEdit && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-          >
-            Add article
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <button
+              onClick={handleSeedDocs}
+              disabled={seeding}
+              className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 transition-colors"
+            >
+              {seeding ? "Importing…" : "Import Docs"}
+            </button>
+          )}
+          {canEdit && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            >
+              Add article
+            </button>
+          )}
+        </div>
       </div>
+
+      {seedResult && (
+        <div className={`mb-4 px-4 py-3 rounded text-sm ${seedResult.startsWith("Error") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+          {seedResult}
+          <button onClick={() => setSeedResult(null)} className="ml-3 text-xs underline opacity-70 hover:opacity-100">Dismiss</button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4 items-center">

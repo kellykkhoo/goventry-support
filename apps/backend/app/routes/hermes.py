@@ -138,6 +138,22 @@ def regenerate_reply(issue_id: int):
         return jsonify({"ok": False, "error": str(exc)}), 500
 
 
+@bp.post("/seed-docs")
+@require_role("Admin")
+def seed_docs():
+    from ..services.docs_importer import seed_all_docs
+    job = HermesJobRun(job_name="seed_docs", status="running")
+    db.session.add(job)
+    db.session.commit()
+    try:
+        created = seed_all_docs(db)
+        _finish_job(job, "success", summary=f"Seeded {len(created)} doc entries from public docs")
+        return jsonify({"ok": True, "count": len(created), "created": created})
+    except Exception as exc:  # noqa: BLE001
+        _finish_job(job, "failed", error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
 @bp.post("/reports/daily")
 @require_role("Admin")
 def generate_daily():

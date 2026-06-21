@@ -11,6 +11,7 @@ from ..extensions import db
 from ..models.issue import Issue, Priority, Product, IssueType
 from .knowledge_service import knowledge_service
 from .gitlab_service import gitlab_service
+from .docs_importer import PUBLIC_DOCS, fetch_doc_content
 from ..models.proposed_action import ActionType
 from .approval_service import approval_service
 
@@ -56,6 +57,23 @@ TOOLS = [
          },
          "required": ["query"],
      }},
+    {"name": "fetch_public_doc",
+     "description": (
+         "Fetch the content of an official public documentation page for GovEntry, GovRewards, or GovSupply. "
+         "Use this when the ticket involves integration, API usage, webhooks, or product features. "
+         "Known doc URLs:\n"
+         + "\n".join(
+             f"  {product}: " + ", ".join(urls)
+             for product, urls in PUBLIC_DOCS.items()
+         )
+     ),
+     "input_schema": {
+         "type": "object",
+         "properties": {
+             "url": {"type": "string", "description": "The documentation URL to fetch"},
+         },
+         "required": ["url"],
+     }},
 ]
 
 _PRIORITY = {p.value: p for p in Priority}
@@ -78,16 +96,23 @@ def _build_client():
 
 
 def _system_prompt(issue: Issue) -> str:
+    doc_list = "\n".join(
+        f"  {product}: " + " | ".join(urls)
+        for product, urls in PUBLIC_DOCS.items()
+    )
     return (
         "You are GovEntry Support's triage agent. Classify the ticket, find duplicates, "
         "and draft a reply for human review.\n"
         "Products: GovEntry, GovSupply, GovRewards.\n"
         "Before drafting a reply, use your tools to gather context:\n"
-        "1. search_knowledge_base — check internal support articles.\n"
+        "1. search_knowledge_base — check internal support articles and imported public docs.\n"
         "2. search_tickets — check if a similar issue was resolved before.\n"
         "3. search_gitlab_docs — search the live product repos for relevant docs, "
         "API specs, or code. Use this whenever the ticket mentions a specific feature, "
         "webhook, API endpoint, or error message.\n"
+        "4. fetch_public_doc — fetch a specific official documentation page. "
+        "Official doc URLs by product:\n"
+        f"{doc_list}\n"
         f"{OUTPUT_SCHEMA_HINT}"
     )
 
@@ -105,6 +130,9 @@ def _run_tool(name: str, tool_input: dict, agency_id: int) -> list:
             return gitlab_service.search_docs(query, repos)
         except Exception:  # noqa: BLE001
             return []
+    if name == "fetch_public_doc":
+        url = tool_input.get("url", "")
+        return fetch_doc_content(url)
     return []
 
 

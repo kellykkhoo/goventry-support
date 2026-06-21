@@ -226,6 +226,12 @@ export const api = {
     return request<DraftFeedback[]>(`/feedback${qs}`);
   },
 
+  seedDocs() {
+    return request<{ ok: boolean; count: number; created: string[] }>("/hermes/seed-docs", {
+      method: "POST",
+    });
+  },
+
   getFeedbackExamples(agencyId?: number) {
     const qs = agencyId != null ? `?agency_id=${agencyId}` : "";
     return request<Record<string, unknown>[]>(`/feedback/examples${qs}`);

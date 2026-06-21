@@ -1,8 +1,10 @@
 # apps/backend/app/routes/approval.py
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
 from ..models.user import User
+from ..models.hermes_job_run import HermesJobRun
 from ..services.approval_service import approval_service
 
 bp = Blueprint("approvals", __name__, url_prefix="/approvals")
@@ -56,8 +58,19 @@ def get_approval(proposal_id):
 @jwt_required()
 def approve(proposal_id):
     body = request.get_json(silent=True) or {}
-    return _handle(lambda: jsonify(_dict(
-        approval_service.approve(_user(), proposal_id, body.get("final_payload")))))
+    def go():
+        proposal = approval_service.approve(_user(), proposal_id, body.get("final_payload"))
+        if proposal.action_type.value == "reply":
+            now = datetime.now(timezone.utc)
+            job = HermesJobRun(
+                job_name="reply_approved", issue_id=proposal.issue_id,
+                status="success", result_summary="Reply approved and sent",
+                started_at=now, finished_at=now,
+            )
+            db.session.add(job)
+            db.session.commit()
+        return jsonify(_dict(proposal))
+    return _handle(go)
 
 
 @bp.post("/<int:proposal_id>/reject")

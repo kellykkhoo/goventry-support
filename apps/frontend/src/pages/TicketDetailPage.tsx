@@ -69,6 +69,11 @@ export default function TicketDetailPage() {
   const [feedbackCategory, setFeedbackCategory] = useState<Record<number, string>>({});
   const [feedbackNotes, setFeedbackNotes] = useState<Record<number, string>>({});
   const [feedbackSending, setFeedbackSending] = useState<Record<number, boolean>>({});
+  const [showNoteCompose, setShowNoteCompose] = useState(false);
+  const [showManualReply, setShowManualReply] = useState(false);
+  const [showRegenerate, setShowRegenerate] = useState(false);
+  const [regenFeedback, setRegenFeedback] = useState("");
+  const [regenLoading, setRegenLoading] = useState(false);
 
   const {
     data: issue,
@@ -156,6 +161,23 @@ export default function TicketDetailPage() {
     },
   });
 
+  async function handleRegenerate(proposal: ProposedAction) {
+    if (!regenFeedback.trim()) return;
+    setRegenLoading(true);
+    try {
+      const existing = approvalEditBodies[proposal.id] ?? (proposal.proposed_payload.body as string) ?? "";
+      const result = await api.regenerateDraft(issueId, proposal.id, regenFeedback.trim(), existing);
+      if (result.ok) {
+        setApprovalEditBodies((prev) => ({ ...prev, [proposal.id]: result.draft }));
+        setRegenFeedback("");
+        setShowRegenerate(false);
+        queryClient.invalidateQueries({ queryKey: ["approvals", "issue", issueId] });
+      }
+    } finally {
+      setRegenLoading(false);
+    }
+  }
+
   async function submitFeedback(proposalId: number, originalDraft: string) {
     const category = feedbackCategory[proposalId];
     if (!category) return;
@@ -238,13 +260,13 @@ export default function TicketDetailPage() {
             <p className="text-sm text-gray-700 whitespace-pre-wrap">{issue.description}</p>
           </div>
 
-          {/* Message thread */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
-              Messages
-            </h2>
+          {/* Messages + reply draft — single unified area */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+            <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Messages</h2>
+
+            {/* Message thread */}
             {msgsLoading && <p className="text-sm text-gray-400">Loading messages…</p>}
-            {!msgsLoading && messages && messages.length === 0 && (
+            {!msgsLoading && messages && messages.length === 0 && !proposals?.items.length && (
               <p className="text-sm text-gray-400">No messages yet.</p>
             )}
             <div className="space-y-2">
@@ -260,94 +282,81 @@ export default function TicketDetailPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <h3 className="text-xs font-medium text-gray-500 mb-2">Add internal note</h3>
-              <textarea
-                value={noteBody}
-                onChange={(e) => setNoteBody(e.target.value)}
-                rows={3}
-                placeholder="Write an internal note…"
-                className="w-full text-sm border border-gray-200 rounded px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-              <button
-                onClick={() => { if (noteBody.trim()) addNoteMutation.mutate(noteBody.trim()); }}
-                disabled={!noteBody.trim() || addNoteMutation.isPending}
-                className="mt-2 px-4 py-1.5 bg-gray-800 text-white text-xs rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
-              >
-                {addNoteMutation.isPending ? "Saving…" : "Add note"}
-              </button>
-              {addNoteMutation.isError && (
-                <p className="text-xs text-red-600 mt-1">
-                  {(addNoteMutation.error as Error)?.message}
-                </p>
-              )}
-            </div>
-          </div>
 
-          {/* Pending approvals card */}
-          {proposals && proposals.items.length > 0 && (
-            <div className="bg-white border border-amber-200 rounded-lg p-4 space-y-3">
-              <h2 className="text-xs font-medium text-amber-700 uppercase tracking-wide">
-                Pending Approvals
-              </h2>
-              {proposals.items.map((p: ProposedAction) => {
-                const bodyVal =
-                  approvalEditBodies[p.id] ?? (p.proposed_payload.body as string) ?? "";
-                const adminBlocked = p.required_tier === "admin" && !isAdmin;
+            {/* Pending reply draft — integrated */}
+            {proposals?.items
+              .filter((p: ProposedAction) => p.action_type === "reply")
+              .map((p: ProposedAction) => {
+                const bodyVal = approvalEditBodies[p.id] ?? (p.proposed_payload.body as string) ?? "";
                 return (
-                  <div key={p.id} className="border border-gray-100 rounded p-3 space-y-2">
-                    <div className="flex gap-2 items-center">
-                      <Badge label={p.action_type.replace("_", " ")} tone="gray" />
-                      <Badge
-                        label={p.required_tier}
-                        tone={p.required_tier === "admin" ? "amber" : "blue"}
-                      />
-                      <span className="text-xs text-gray-500">{p.proposer}</span>
+                  <div key={p.id} className="border border-amber-200 rounded-lg p-4 bg-amber-50 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-amber-700 uppercase tracking-wide">AI Draft · Pending approval</span>
+                      <span className="text-xs text-gray-400 ml-auto">{p.proposer}</span>
                     </div>
-                    {p.action_type === "reply" ? (
-                      isAdmin ? (
-                        <textarea
-                          value={bodyVal}
-                          onChange={(e) =>
-                            setApprovalEditBodies((prev) => ({ ...prev, [p.id]: e.target.value }))
-                          }
-                          rows={4}
-                          className="w-full text-sm border border-gray-200 rounded px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-amber-400"
-                        />
-                      ) : (
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded p-2">
-                          {p.proposed_payload.body as string}
-                        </p>
-                      )
-                    ) : (
-                      <div className="text-xs text-gray-600 bg-gray-50 rounded p-2">
-                        {Object.entries(p.proposed_payload).map(([k, v]) => (
-                          <div key={k}>
-                            <span className="text-gray-400">{k}: </span>
-                            <span>{String(v)}</span>
+
+                    <textarea
+                      value={bodyVal}
+                      onChange={(e) =>
+                        setApprovalEditBodies((prev) => ({ ...prev, [p.id]: e.target.value }))
+                      }
+                      rows={6}
+                      readOnly={!isAdmin}
+                      className="w-full text-sm border border-amber-200 rounded px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white"
+                    />
+
+                    {/* Regenerate section */}
+                    {isAdmin && (
+                      <div>
+                        {showRegenerate ? (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={regenFeedback}
+                              onChange={(e) => setRegenFeedback(e.target.value)}
+                              placeholder="What to improve? e.g. 'make it shorter', 'add pricing info'"
+                              className="w-full text-sm border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleRegenerate(p)}
+                                disabled={!regenFeedback.trim() || regenLoading}
+                                className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-500 disabled:opacity-50 transition-colors"
+                              >
+                                {regenLoading ? "Regenerating…" : "Regenerate"}
+                              </button>
+                              <button
+                                onClick={() => { setShowRegenerate(false); setRegenFeedback(""); }}
+                                className="px-3 py-1.5 text-gray-500 text-xs hover:text-gray-700"
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           </div>
-                        ))}
+                        ) : (
+                          <button
+                            onClick={() => setShowRegenerate(true)}
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            Improve this draft →
+                          </button>
+                        )}
                       </div>
                     )}
+
+                    {/* Approve / Reject */}
                     {isAdmin ? (
-                      <div className="flex gap-2 flex-wrap">
+                      <div className="flex gap-2 flex-wrap pt-1">
                         <button
-                          onClick={() =>
-                            approveProposalMutation.mutate({
-                              id: p.id,
-                              body: p.action_type === "reply" ? bodyVal : undefined,
-                            })
-                          }
-                          disabled={adminBlocked || approveProposalMutation.isPending}
-                          className="px-3 py-1 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 transition-colors"
+                          onClick={() => approveProposalMutation.mutate({ id: p.id, body: bodyVal })}
+                          disabled={approveProposalMutation.isPending}
+                          className="px-4 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 transition-colors"
                         >
-                          Approve
+                          {approveProposalMutation.isPending ? "Sending…" : "Approve & send"}
                         </button>
                         <button
-                          onClick={() =>
-                            setRejectingApprovalId(rejectingApprovalId === p.id ? null : p.id)
-                          }
-                          className="px-3 py-1 bg-red-100 text-red-700 text-xs rounded hover:bg-red-200 transition-colors"
+                          onClick={() => setRejectingApprovalId(rejectingApprovalId === p.id ? null : p.id)}
+                          className="px-4 py-1.5 bg-red-100 text-red-700 text-xs rounded hover:bg-red-200 transition-colors"
                         >
                           Reject
                         </button>
@@ -355,11 +364,10 @@ export default function TicketDetailPage() {
                     ) : (
                       <p className="text-xs text-amber-600">
                         Pending Admin approval ·{" "}
-                        <Link to="/approvals" className="underline">
-                          Review in queue
-                        </Link>
+                        <Link to="/approvals" className="underline">Review in queue</Link>
                       </p>
                     )}
+
                     {rejectingApprovalId === p.id && (
                       <div className="flex gap-2 flex-col">
                         <input
@@ -367,66 +375,40 @@ export default function TicketDetailPage() {
                           placeholder="Reason (required)"
                           value={approvalRejectReasons[p.id] ?? ""}
                           onChange={(e) =>
-                            setApprovalRejectReasons((prev) => ({
-                              ...prev,
-                              [p.id]: e.target.value,
-                            }))
+                            setApprovalRejectReasons((prev) => ({ ...prev, [p.id]: e.target.value }))
                           }
                           className="text-sm border border-gray-300 rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-400"
                         />
                         <button
                           onClick={() => {
                             const reason = approvalRejectReasons[p.id] ?? "";
-                            if (reason.trim())
-                              rejectProposalMutation.mutate({ id: p.id, reason });
+                            if (reason.trim()) rejectProposalMutation.mutate({ id: p.id, reason });
                           }}
-                          disabled={
-                            !(approvalRejectReasons[p.id] ?? "").trim() ||
-                            rejectProposalMutation.isPending
-                          }
+                          disabled={!(approvalRejectReasons[p.id] ?? "").trim() || rejectProposalMutation.isPending}
                           className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50 transition-colors"
                         >
                           Confirm reject
                         </button>
                       </div>
                     )}
-                    {/* Draft feedback panel — show for reply proposals */}
-                    {p.action_type === "reply" && !feedbackSubmitted.has(p.id) && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <p className="text-xs font-medium text-gray-500 mb-2">How was this draft?</p>
+
+                    {/* Feedback tags */}
+                    {!feedbackSubmitted.has(p.id) && (
+                      <div className="pt-2 border-t border-amber-100">
+                        <p className="text-xs text-gray-500 mb-1.5">How was this draft?</p>
                         <div className="flex flex-wrap gap-1.5 mb-2">
                           {FEEDBACK_CATEGORIES.map((cat) => (
                             <button
                               key={cat.key}
-                              onClick={() =>
-                                setFeedbackCategory((prev) => ({
-                                  ...prev,
-                                  [p.id]: prev[p.id] === cat.key ? "" : cat.key,
-                                }))
-                              }
-                              className={`px-2 py-1 text-xs rounded-full border transition-colors ${
-                                feedbackCategory[p.id] === cat.key
-                                  ? "bg-blue-600 text-white border-blue-600"
-                                  : "text-gray-600 border-gray-200 hover:border-blue-400"
-                              }`}
+                              onClick={() => setFeedbackCategory((prev) => ({ ...prev, [p.id]: prev[p.id] === cat.key ? "" : cat.key }))}
+                              className={`px-2 py-1 text-xs rounded-full border transition-colors ${feedbackCategory[p.id] === cat.key ? "bg-blue-600 text-white border-blue-600" : "text-gray-600 border-gray-200 hover:border-blue-400"}`}
                             >
                               {cat.label}
                             </button>
                           ))}
                         </div>
-                        <textarea
-                          value={feedbackNotes[p.id] ?? ""}
-                          onChange={(e) =>
-                            setFeedbackNotes((prev) => ({ ...prev, [p.id]: e.target.value }))
-                          }
-                          rows={2}
-                          placeholder="Any notes about this draft? (optional)"
-                          className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 mb-2"
-                        />
                         <button
-                          onClick={() =>
-                            submitFeedback(p.id, (p.proposed_payload.body as string) ?? "")
-                          }
+                          onClick={() => submitFeedback(p.id, (p.proposed_payload.body as string) ?? "")}
                           disabled={!feedbackCategory[p.id] || feedbackSending[p.id]}
                           className="px-3 py-1 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-40 transition-colors"
                         >
@@ -434,43 +416,120 @@ export default function TicketDetailPage() {
                         </button>
                       </div>
                     )}
-                    {feedbackSubmitted.has(p.id) && (
-                      <p className="mt-2 text-xs text-green-600">Feedback saved.</p>
-                    )}
+                    {feedbackSubmitted.has(p.id) && <p className="text-xs text-green-600">Feedback saved.</p>}
                   </div>
                 );
               })}
-            </div>
-          )}
 
-          {/* Reply composer */}
-          {canWrite && (
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                Reply to requester
-              </h2>
-              <textarea
-                value={draftBody}
-                onChange={(e) => setDraftBody(e.target.value)}
-                rows={6}
-                placeholder="Write a reply… sending resolves the ticket."
-                className="w-full text-sm border border-gray-200 rounded px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-green-500"
-              />
-              <button
-                onClick={() => {
-                  const body = draftBody.trim();
-                  if (body) approveReplyMutation.mutate(body);
-                }}
-                disabled={!draftBody.trim() || approveReplyMutation.isPending}
-                className="mt-2 px-4 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 transition-colors"
-              >
-                {approveReplyMutation.isPending ? "Sending…" : "Approve, send & resolve"}
-              </button>
-              {approveReplyMutation.isError && (
-                <p className="text-xs text-red-600 mt-1">
-                  {(approveReplyMutation.error as Error)?.message}
-                </p>
+            {/* Manual reply — only when no pending draft */}
+            {canWrite && !proposals?.items.some((p: ProposedAction) => p.action_type === "reply") && (
+              <div className="border-t border-gray-100 pt-4">
+                {showManualReply ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={draftBody}
+                      onChange={(e) => setDraftBody(e.target.value)}
+                      rows={5}
+                      placeholder="Write a reply… sending resolves the ticket."
+                      className="w-full text-sm border border-gray-200 rounded px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-green-500"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { if (draftBody.trim()) approveReplyMutation.mutate(draftBody.trim()); }}
+                        disabled={!draftBody.trim() || approveReplyMutation.isPending}
+                        className="px-4 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 transition-colors"
+                      >
+                        {approveReplyMutation.isPending ? "Sending…" : "Send & resolve"}
+                      </button>
+                      <button onClick={() => { setShowManualReply(false); setDraftBody(""); }} className="px-3 py-1.5 text-gray-500 text-xs hover:text-gray-700">
+                        Cancel
+                      </button>
+                    </div>
+                    {approveReplyMutation.isError && (
+                      <p className="text-xs text-red-600">{(approveReplyMutation.error as Error)?.message}</p>
+                    )}
+                  </div>
+                ) : (
+                  <button onClick={() => setShowManualReply(true)} className="text-xs text-green-700 font-medium hover:underline">
+                    + Write reply
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Internal note — collapsible */}
+            <div className="border-t border-gray-100 pt-4">
+              {showNoteCompose ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-gray-500">Internal note (not sent to requester)</p>
+                  <textarea
+                    value={noteBody}
+                    onChange={(e) => setNoteBody(e.target.value)}
+                    rows={3}
+                    placeholder="Write an internal note…"
+                    className="w-full text-sm border border-gray-200 rounded px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { if (noteBody.trim()) addNoteMutation.mutate(noteBody.trim()); }}
+                      disabled={!noteBody.trim() || addNoteMutation.isPending}
+                      className="px-4 py-1.5 bg-gray-800 text-white text-xs rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                    >
+                      {addNoteMutation.isPending ? "Saving…" : "Add note"}
+                    </button>
+                    <button onClick={() => { setShowNoteCompose(false); setNoteBody(""); }} className="px-3 py-1.5 text-gray-500 text-xs hover:text-gray-700">
+                      Cancel
+                    </button>
+                  </div>
+                  {addNoteMutation.isError && (
+                    <p className="text-xs text-red-600 mt-1">{(addNoteMutation.error as Error)?.message}</p>
+                  )}
+                </div>
+              ) : (
+                <button onClick={() => setShowNoteCompose(true)} className="text-xs text-gray-500 hover:text-gray-700 hover:underline">
+                  + Add internal note
+                </button>
               )}
+            </div>
+          </div>
+
+          {/* Non-reply pending approvals (e.g. internal notes from Hermes) */}
+          {proposals && proposals.items.filter((p: ProposedAction) => p.action_type !== "reply").length > 0 && (
+            <div className="bg-white border border-amber-200 rounded-lg p-4 space-y-3">
+              <h2 className="text-xs font-medium text-amber-700 uppercase tracking-wide">Pending Approvals</h2>
+              {proposals.items
+                .filter((p: ProposedAction) => p.action_type !== "reply")
+                .map((p: ProposedAction) => (
+                  <div key={p.id} className="border border-gray-100 rounded p-3 space-y-2">
+                    <div className="flex gap-2 items-center">
+                      <Badge label={p.action_type.replace("_", " ")} tone="gray" />
+                      <Badge label={p.required_tier} tone={p.required_tier === "admin" ? "amber" : "blue"} />
+                      <span className="text-xs text-gray-500">{p.proposer}</span>
+                    </div>
+                    <div className="text-xs text-gray-600 bg-gray-50 rounded p-2">
+                      {Object.entries(p.proposed_payload).map(([k, v]) => (
+                        <div key={k}><span className="text-gray-400">{k}: </span><span>{String(v)}</span></div>
+                      ))}
+                    </div>
+                    {isAdmin && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => approveProposalMutation.mutate({ id: p.id })}
+                          disabled={approveProposalMutation.isPending}
+                          className="px-3 py-1 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 transition-colors"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => setRejectingApprovalId(rejectingApprovalId === p.id ? null : p.id)}
+                          className="px-3 py-1 bg-red-100 text-red-700 text-xs rounded hover:bg-red-200 transition-colors"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
             </div>
           )}
         </div>

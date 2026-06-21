@@ -7,7 +7,8 @@ from ..extensions import db
 from ..models.issue import Issue
 from ..models.hermes_report import HermesReport
 from ..models.hermes_job_run import HermesJobRun
-from ..services.triage_service import run_triage
+from ..services.triage_service import run_triage, regenerate_draft_reply
+from ..models.proposed_action import ProposedAction
 from ..services.report_service import generate_daily_report, generate_weekly_report
 from ..services.approval_service import approval_service
 from ..models.proposed_action import ActionType
@@ -104,6 +105,35 @@ def create_internal_note(issue_id: int):
         _finish_job(job, "success", summary="Internal note proposed for approval")
         return jsonify({"ok": True})
     except Exception as exc:  # noqa: BLE001
+        _finish_job(job, "failed", error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@bp.post("/tickets/<int:issue_id>/regenerate-reply")
+@require_role("Admin", "PM", "Product Ops")
+def regenerate_reply(issue_id: int):
+    body = request.get_json(silent=True) or {}
+    feedback = (body.get("feedback") or "").strip()
+    existing_draft = (body.get("existing_draft") or "").strip()
+    proposal_id = body.get("proposal_id")
+    if not feedback:
+        return jsonify({"error": "feedback is required"}), 400
+    job = HermesJobRun(job_name="regenerate_reply", issue_id=issue_id, status="running")
+    db.session.add(job)
+    db.session.commit()
+    try:
+        new_draft = regenerate_draft_reply(issue_id, feedback, existing_draft)
+        if not new_draft:
+            _finish_job(job, "failed", error="No draft generated (check ANTHROPIC_API_KEY)")
+            return jsonify({"ok": False, "error": "No draft generated"}), 500
+        if proposal_id:
+            proposal = db.session.get(ProposedAction, proposal_id)
+            if proposal and proposal.status == "pending":
+                proposal.proposed_payload = {**(proposal.proposed_payload or {}), "body": new_draft}
+                db.session.commit()
+        _finish_job(job, "success", summary=f"Draft regenerated with feedback")
+        return jsonify({"ok": True, "draft": new_draft})
+    except Exception as exc:
         _finish_job(job, "failed", error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
 

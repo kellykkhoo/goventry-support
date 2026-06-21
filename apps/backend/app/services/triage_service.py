@@ -172,6 +172,30 @@ def run_triage(issue_id: int) -> dict | None:
     return parsed
 
 
+def regenerate_draft_reply(issue_id: int, feedback: str, existing_draft: str) -> str | None:
+    """Re-draft a reply incorporating reviewer feedback. Returns new reply text or None."""
+    issue = db.session.get(Issue, issue_id)
+    if issue is None or not _get_api_key():
+        return None
+    client = _build_client()
+    prompt = (
+        f"Ticket #{issue.id}\nTitle: {issue.title}\nDescription:\n{issue.description}\n\n"
+        f"Current draft:\n{existing_draft}\n\n"
+        f"Reviewer feedback: {feedback}\n\n"
+        "Rewrite the reply incorporating this feedback. Return only the reply text."
+    )
+    resp = client.messages.create(
+        model=MODEL, max_tokens=2000,
+        system=(
+            "You are GovEntry Support. Rewrite the draft reply based on reviewer feedback. "
+            "Return only the improved reply text, no preamble, no JSON."
+        ),
+        messages=[{"role": "user", "content": prompt}],
+    )
+    text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+    return text or None
+
+
 def triage_in_background(app, issue_id: int) -> None:
     """Flask does not propagate app context into threads — push our own."""
     def _run():

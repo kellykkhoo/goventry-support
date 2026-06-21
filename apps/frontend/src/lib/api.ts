@@ -211,6 +211,16 @@ export const api = {
     });
   },
 
+  regenerateDraft(issueId: number, proposalId: number, feedback: string, existingDraft: string) {
+    return request<{ ok: boolean; draft: string }>(
+      `/hermes/tickets/${issueId}/regenerate-reply`,
+      {
+        method: "POST",
+        body: JSON.stringify({ proposal_id: proposalId, feedback, existing_draft: existingDraft }),
+      }
+    );
+  },
+
   listFeedback(params?: URLSearchParams) {
     const qs = params ? `?${params.toString()}` : "";
     return request<DraftFeedback[]>(`/feedback${qs}`);

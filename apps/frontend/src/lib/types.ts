@@ -19,6 +19,7 @@ export interface Issue {
   triaged_at: string | null;
   resolution_summary: string | null;
   created_at: string;
+  submitted_at: string | null;
 }
 
 export interface IssueListResponse {

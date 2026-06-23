@@ -37,6 +37,7 @@ model Issue {
   aiDraftReply String?
   triagedAt    DateTime?
 
+  submittedAt       DateTime? // When the form/request was originally submitted (esp. for FormSG)
   resolutionSummary String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

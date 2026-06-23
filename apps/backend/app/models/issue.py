@@ -63,6 +63,7 @@ class Issue(db.Model):
     ai_triage_json: Mapped[dict | None] = mapped_column(sa.JSON)
     ai_draft_reply: Mapped[str | None] = mapped_column(sa.Text)
     triaged_at: Mapped[datetime | None] = mapped_column()
+    submitted_at: Mapped[datetime | None] = mapped_column()
     resolution_summary: Mapped[str | None] = mapped_column(sa.Text)
     created_at: Mapped[datetime] = mapped_column(default=_utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(default=_utcnow, onupdate=_utcnow, nullable=False)

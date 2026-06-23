@@ -40,6 +40,7 @@ def test_no_secret_key_accepts_submission(client, app, agencies, monkeypatch):
 def test_creates_issue_with_correct_fields(client, app, agencies, monkeypatch):
     from app.extensions import db
     from app.models.issue import Issue, Source, Status
+    from datetime import datetime
 
     monkeypatch.delenv("FORMSG_SECRET_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
@@ -57,6 +58,10 @@ def test_creates_issue_with_correct_fields(client, app, agencies, monkeypatch):
         assert "Cannot log in" in issue.title
         assert issue.status == Status.Backlog
         assert issue.agency_id == agencies["MOH"]
+        # Verify submission timestamp is captured from FormSG webhook
+        assert issue.submitted_at is not None
+        expected_date = datetime.fromisoformat("2026-06-14T10:00:00+00:00")
+        assert issue.submitted_at == expected_date
 
 
 def test_idempotent_on_duplicate_submission_id(client, app, agencies, monkeypatch):
@@ -109,3 +114,27 @@ def test_missing_submission_id_returns_400(client, app, agencies, monkeypatch):
     bad = json.dumps({"data": {"responses": _RESPONSES}})
     rv = _post(client, bad)
     assert rv.status_code == 400
+
+
+def test_submitted_at_optional_if_missing_from_payload(client, app, agencies, monkeypatch):
+    from app.extensions import db
+    from app.models.issue import Issue
+
+    monkeypatch.delenv("FORMSG_SECRET_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    # Payload without 'created' field
+    payload_no_timestamp = json.dumps({
+        "data": {
+            "submissionId": "sub-no-timestamp-001",
+            "responses": _RESPONSES,
+        }
+    })
+    rv = _post(client, payload_no_timestamp)
+    assert rv.status_code == 201
+    issue_id = rv.get_json()["issue_id"]
+
+    with app.app_context():
+        issue = db.session.get(Issue, issue_id)
+        # submitted_at should be None, which is acceptable
+        assert issue.submitted_at is None

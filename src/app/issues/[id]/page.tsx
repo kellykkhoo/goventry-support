@@ -49,6 +49,11 @@ export default async function IssuePage({ params }: { params: Promise<{ id: stri
           <div className="mb-5 text-xs text-muted">
             Requester: <span className="text-zinc-300">{issue.requesterName ?? "—"}</span> ·{" "}
             <span className="text-zinc-300">{issue.requesterEmail}</span>
+            {issue.submittedAt && (
+              <>
+                {" "}· Submitted: <span className="text-zinc-300">{new Date(issue.submittedAt).toLocaleString("en-SG")}</span>
+              </>
+            )}
           </div>
         )}
 

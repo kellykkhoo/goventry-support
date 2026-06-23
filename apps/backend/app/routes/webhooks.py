@@ -1,5 +1,6 @@
 # apps/backend/app/routes/webhooks.py
 import base64, json, os, sys, time
+from datetime import datetime, timezone
 from flask import Blueprint, current_app, jsonify, request
 from ..extensions import db
 from ..models.agency import Agency
@@ -163,12 +164,23 @@ def formsg_webhook():
         or "No description provided."
     )
 
+    # Extract FormSG submission timestamp from the webhook payload
+    submitted_at = None
+    created_timestamp = data.get("created")
+    if created_timestamp:
+        try:
+            # FormSG provides timestamps in ISO 8601 format (e.g., "2026-06-14T10:00:00.000Z")
+            submitted_at = datetime.fromisoformat(created_timestamp.replace("Z", "+00:00"))
+        except (ValueError, AttributeError):
+            pass  # If parsing fails, submitted_at remains None
+
     issue = Issue(
         title=title[:500], description=description,
         source=Source.formsg, source_ref=submission_id,
         status=Status.Backlog, priority=Priority.Medium, agency_id=agency_id,
         requester_name=fields.get("requester_name"),
         requester_email=fields.get("requester_email"),
+        submitted_at=submitted_at,
     )
     db.session.add(issue)
     db.session.commit()

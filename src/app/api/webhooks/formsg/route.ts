@@ -25,7 +25,11 @@ const formsg = formsgSdk({ mode: "production" });
 
 type FormResponse = { question?: string; answer?: string; answerArray?: string[] };
 
-async function createTicketFromResponses(responses: FormResponse[], sourceRef: string) {
+async function createTicketFromResponses(
+  responses: FormResponse[],
+  sourceRef: string,
+  submittedAt?: Date,
+) {
   // Flatten FormSG responses into a label -> answer map
   const byLabel: Record<string, string> = {};
   for (const r of responses) {
@@ -65,6 +69,7 @@ async function createTicketFromResponses(responses: FormResponse[], sourceRef: s
       sourceRef,
       requesterName: s.name ?? null,
       requesterEmail: s.email ?? null,
+      submittedAt: submittedAt ?? null,
       ...(agency ? { agencies: { create: [{ agencyId: agency.id }] } } : {}),
     },
   });
@@ -84,9 +89,11 @@ export async function POST(req: NextRequest) {
   // local tests of the field mapping post `{devTest: true, responses: [...]}`
   // (see scripts/test-formsg.mjs). Hard-disabled in production builds.
   if (process.env.NODE_ENV !== "production" && body.devTest === true) {
+    const submittedAt = body.data?.created ? new Date(body.data.created) : undefined;
     const issue = await createTicketFromResponses(
       body.responses ?? [],
       `formsg-dev:${crypto.randomUUID()}`,
+      submittedAt,
     );
     return NextResponse.json({ message: "ok (dev simulation)", issueId: issue.id });
   }
@@ -123,9 +130,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "Already processed", issueId: existing.id });
   }
 
+  // Extract FormSG submission timestamp if available
+  const submittedAt = body.data?.created ? new Date(body.data.created) : undefined;
+
   const issue = await createTicketFromResponses(
     submission.responses as FormResponse[],
     `formsg:${submissionId}`,
+    submittedAt,
   );
 
   return NextResponse.json({ message: "ok", issueId: issue.id });

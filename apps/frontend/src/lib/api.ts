@@ -117,10 +117,21 @@ export const api = {
   triage(id: number) {
     return request<{ ok: boolean }>(`/issues/${id}/triage`, { method: "POST" });
   },
+  sendReply(id: number, body: string) {
+    return request<Issue>(`/issues/${id}/send-reply`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    });
+  },
   approveReply(id: number, body: string) {
     return request<Issue>(`/issues/${id}/approve-reply`, {
       method: "POST",
       body: JSON.stringify({ body }),
+    });
+  },
+  resolveTicket(id: number) {
+    return request<Issue>(`/issues/${id}/resolve`, {
+      method: "POST",
     });
   },
   listAgencies() {

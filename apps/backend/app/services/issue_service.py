@@ -116,7 +116,21 @@ class IssueService:
             .order_by(TicketMessage.created_at.asc())
         ).all()
 
+    def send_reply(self, user, issue_id, body) -> Issue:
+        """Send a reply WITHOUT resolving the ticket."""
+        self._require_write(user)
+        issue = self.get_issue(user, issue_id)
+        db.session.add(TicketMessage(issue_id=issue.id, direction=Direction.outbound,
+                                     sender_name=user.name, body=body))
+        if issue.requester_email:
+            email_service.send(to=issue.requester_email,
+                               subject=f"Re: {issue.title}", body=body)
+        db.session.commit()
+        audit_service.log("reply_sent", user=user, issue=issue)
+        return issue
+
     def approve_and_send(self, user, issue_id, body) -> Issue:
+        """Legacy: Send a reply AND resolve the ticket (auto-closes conversation)."""
         self._require_write(user)
         issue = self.get_issue(user, issue_id)
         db.session.add(TicketMessage(issue_id=issue.id, direction=Direction.outbound,
@@ -134,6 +148,32 @@ class IssueService:
         ))
         db.session.commit()
         audit_service.log("reply_sent", user=user, issue=issue)
+        return issue
+
+    def resolve_ticket(self, user, issue_id) -> Issue:
+        """Mark ticket as Done and create knowledge entry."""
+        self._require_write(user)
+        issue = self.get_issue(user, issue_id)
+        if issue.status == Status.Done:
+            return issue  # Already done
+        issue.status = Status.Done
+        # Use the most recent outbound message as resolution summary
+        last_msg = db.session.scalars(
+            db.select(TicketMessage).where(
+                TicketMessage.issue_id == issue.id,
+                TicketMessage.direction == Direction.outbound
+            ).order_by(TicketMessage.created_at.desc()).limit(1)
+        ).first()
+        if last_msg:
+            issue.resolution_summary = last_msg.body[:500]
+            db.session.add(KnowledgeEntry(
+                title=issue.title,
+                content=f"PROBLEM: {issue.description}\nRESOLUTION: {last_msg.body}",
+                source_type=SourceType.resolved_ticket, issue_id=issue.id,
+                agency_id=issue.agency_id, visibility=Visibility.agency_specific,
+            ))
+        db.session.commit()
+        audit_service.log("ticket_resolved", user=user, issue=issue)
         return issue
 
 

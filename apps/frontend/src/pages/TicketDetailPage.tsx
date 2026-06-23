@@ -74,6 +74,7 @@ export default function TicketDetailPage() {
   const [showRegenerate, setShowRegenerate] = useState(false);
   const [regenFeedback, setRegenFeedback] = useState("");
   const [regenLoading, setRegenLoading] = useState(false);
+  const [resolveLoading, setResolveLoading] = useState(false);
 
   const {
     data: issue,
@@ -134,11 +135,30 @@ export default function TicketDetailPage() {
     },
   });
 
+  const sendReplyMutation = useMutation({
+    mutationFn: (body: string) => api.sendReply(issueId, body),
+    onSuccess: () => {
+      setSuccessMsg("Reply sent.");
+      setDraftBody("");
+      setShowManualReply(false);
+      queryClient.invalidateQueries({ queryKey: ["messages", issueId] });
+      queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
+    },
+  });
+
   const approveReplyMutation = useMutation({
     mutationFn: (body: string) => api.approveReply(issueId, body),
     onSuccess: () => {
       setSuccessMsg("Reply sent and ticket resolved.");
       setTimeout(() => navigate("/tickets"), 1500);
+    },
+  });
+
+  const resolveTicketMutation = useMutation({
+    mutationFn: () => api.resolveTicket(issueId),
+    onSuccess: () => {
+      setSuccessMsg("Ticket resolved.");
+      queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
     },
   });
 
@@ -430,23 +450,23 @@ export default function TicketDetailPage() {
                       value={draftBody}
                       onChange={(e) => setDraftBody(e.target.value)}
                       rows={5}
-                      placeholder="Write a reply… sending resolves the ticket."
+                      placeholder="Write a follow-up reply…"
                       className="w-full text-sm border border-gray-200 rounded px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-green-500"
                     />
                     <div className="flex gap-2">
                       <button
-                        onClick={() => { if (draftBody.trim()) approveReplyMutation.mutate(draftBody.trim()); }}
-                        disabled={!draftBody.trim() || approveReplyMutation.isPending}
+                        onClick={() => { if (draftBody.trim()) sendReplyMutation.mutate(draftBody.trim()); }}
+                        disabled={!draftBody.trim() || sendReplyMutation.isPending}
                         className="px-4 py-1.5 bg-green-700 text-white text-xs rounded hover:bg-green-600 disabled:opacity-50 transition-colors"
                       >
-                        {approveReplyMutation.isPending ? "Sending…" : "Send & resolve"}
+                        {sendReplyMutation.isPending ? "Sending…" : "Send reply"}
                       </button>
                       <button onClick={() => { setShowManualReply(false); setDraftBody(""); }} className="px-3 py-1.5 text-gray-500 text-xs hover:text-gray-700">
                         Cancel
                       </button>
                     </div>
-                    {approveReplyMutation.isError && (
-                      <p className="text-xs text-red-600">{(approveReplyMutation.error as Error)?.message}</p>
+                    {sendReplyMutation.isError && (
+                      <p className="text-xs text-red-600">{(sendReplyMutation.error as Error)?.message}</p>
                     )}
                   </div>
                 ) : (
@@ -554,6 +574,15 @@ export default function TicketDetailPage() {
                 <p className="text-sm text-gray-700">{issue.status}</p>
               )}
             </div>
+            {canWrite && issue.status !== "Done" && (
+              <button
+                onClick={() => resolveTicketMutation.mutate()}
+                disabled={resolveTicketMutation.isPending}
+                className="w-full px-3 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-500 disabled:opacity-50 transition-colors"
+              >
+                {resolveTicketMutation.isPending ? "Resolving…" : "Resolve ticket"}
+              </button>
+            )}
             <div>
               <label className="text-xs font-medium text-gray-500 block mb-1">Assignee</label>
               {canWrite ? (

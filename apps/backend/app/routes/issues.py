@@ -111,9 +111,24 @@ def trigger_triage(issue_id):
     return _handle(go)
 
 
+@bp.post("/<int:issue_id>/send-reply")
+@jwt_required()
+def send_reply(issue_id):
+    body = request.get_json(silent=True) or {}
+    return _handle(lambda: jsonify(_issue_dict(
+        issue_service.send_reply(_user(), issue_id, body.get("body", "")))))
+
+
 @bp.post("/<int:issue_id>/approve-reply")
 @jwt_required()
 def approve_reply(issue_id):
     body = request.get_json(silent=True) or {}
     return _handle(lambda: jsonify(_issue_dict(
         issue_service.approve_and_send(_user(), issue_id, body.get("body", "")))))
+
+
+@bp.post("/<int:issue_id>/resolve")
+@jwt_required()
+def resolve_ticket(issue_id):
+    return _handle(lambda: jsonify(_issue_dict(
+        issue_service.resolve_ticket(_user(), issue_id))))

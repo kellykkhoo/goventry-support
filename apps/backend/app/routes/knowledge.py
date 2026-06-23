@@ -12,11 +12,11 @@ def _user():
     return db.session.get(User, int(get_jwt_identity()))
 
 
-def _entry_dict(e):
+def _entry_dict(e, full_content: bool = True):
     return {
         "id": e.id,
         "title": e.title,
-        "content": e.content,
+        "content": e.content if full_content else (e.content or "")[:800],
         "source_type": e.source_type.value,
         "visibility": e.visibility.value,
         "agency_id": e.agency_id,
@@ -50,7 +50,7 @@ def list_entries():
         source_type=args.get("source_type"),
         agency_id_filter=agency_id_filter,
     )
-    items = [_entry_dict(e) for e in entries]
+    items = [_entry_dict(e, full_content=False) for e in entries]
     return jsonify({"total": len(items), "items": items})
 
 

@@ -155,6 +155,7 @@ export default function KnowledgePage({ sourceType }: KnowledgePageProps) {
   const [search, setSearch] = useState("");
   const [visibility, setVisibility] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [fullContent, setFullContent] = useState<Record<number, string>>({});
   const [showForm, setShowForm] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [seedResult, setSeedResult] = useState<string | null>(null);
@@ -210,8 +211,16 @@ export default function KnowledgePage({ sourceType }: KnowledgePageProps) {
     queryClient.invalidateQueries({ queryKey: ["knowledge"] });
   }
 
-  function toggleExpand(id: number) {
+  async function toggleExpand(id: number) {
     setExpandedId((prev) => (prev === id ? null : id));
+    if (!(id in fullContent)) {
+      try {
+        const entry = await api.getKnowledge(id);
+        setFullContent((prev) => ({ ...prev, [id]: entry.content }));
+      } catch {
+        // fall back to truncated list content
+      }
+    }
   }
 
   return (
@@ -372,7 +381,7 @@ export default function KnowledgePage({ sourceType }: KnowledgePageProps) {
                             className="px-4 py-4 bg-gray-50 border-t border-gray-100"
                           >
                             <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                              {entry.content}
+                              {fullContent[entry.id] ?? entry.content}
                             </p>
                           </td>
                         </tr>

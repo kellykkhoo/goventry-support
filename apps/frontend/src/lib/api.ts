@@ -163,6 +163,9 @@ export const api = {
     const qs = params ? `?${params.toString()}` : "";
     return request<KnowledgeListResponse>(`/knowledge${qs}`);
   },
+  getKnowledge(id: number) {
+    return request<KnowledgeEntry>(`/knowledge/${id}`);
+  },
   createKnowledge(data: Partial<KnowledgeEntry>) {
     return request<KnowledgeEntry>("/knowledge", {
       method: "POST",

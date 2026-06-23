@@ -28,6 +28,7 @@ def _issue_dict(i):
         "triaged_at": i.triaged_at.isoformat() if i.triaged_at else None,
         "resolution_summary": i.resolution_summary,
         "created_at": i.created_at.isoformat(),
+        "submitted_at": i.submitted_at.isoformat() if i.submitted_at else None,
     }
 
 

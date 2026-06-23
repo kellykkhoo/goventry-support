@@ -74,7 +74,6 @@ export default function TicketDetailPage() {
   const [showRegenerate, setShowRegenerate] = useState(false);
   const [regenFeedback, setRegenFeedback] = useState("");
   const [regenLoading, setRegenLoading] = useState(false);
-  const [resolveLoading, setResolveLoading] = useState(false);
 
   const {
     data: issue,
@@ -143,14 +142,6 @@ export default function TicketDetailPage() {
       setShowManualReply(false);
       queryClient.invalidateQueries({ queryKey: ["messages", issueId] });
       queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
-    },
-  });
-
-  const approveReplyMutation = useMutation({
-    mutationFn: (body: string) => api.approveReply(issueId, body),
-    onSuccess: () => {
-      setSuccessMsg("Reply sent and ticket resolved.");
-      setTimeout(() => navigate("/tickets"), 1500);
     },
   });
 

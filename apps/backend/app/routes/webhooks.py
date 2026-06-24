@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, current_app, jsonify, request
 from ..extensions import db
 from ..models.agency import Agency
-from ..models.issue import Issue, Priority, Source, Status
+from ..models.issue import Issue, IssueType, Priority, Source, Status
 from ..services.audit_service import audit_service
 from ..services.triage_service import triage_in_background
 
@@ -96,13 +96,18 @@ def _map_responses(responses: list) -> dict:
                     return a or None
         return None
 
+    issue_type_raw = find("type of issue", "issue type", "type of request")
+    feature_area = find("which goventry feature", "feature is your enquiry", "feature area")
+
     return {
         "requester_name": find("name", "full name", "your name"),
         "requester_email": find("email"),
-        "title": find("subject", "title", "summary", "feature", "enquiry"),
+        "title": find("subject", "title", "summary"),
         "description": find("describe", "description", "detail", "message", "feedback", "issue", "problem", "question"),
         "agency_hint": find("agency", "department", "ministry", "organisation", "organization"),
         "priority_hint": find("priority", "urgency", "severity"),
+        "issue_type_raw": issue_type_raw,
+        "feature_area": feature_area,
     }
 
 
@@ -158,11 +163,36 @@ def formsg_webhook():
     if agency_id is None:
         return jsonify({"error": "Cannot resolve agency"}), 422
 
-    title = fields.get("title") or f"FormSG submission {submission_id[:8]}"
     description = (
         fields.get("description")
         or "\n".join(f"{r.get('question')}: {r.get('answer')}" for r in responses)
         or "No description provided."
+    )
+    feature_area = fields.get("feature_area")
+    issue_type_raw = (fields.get("issue_type_raw") or "").lower()
+    title = fields.get("title")
+    if not title:
+        # Construct title from issue type + feature area since form has no subject field
+        parts = []
+        if issue_type_raw:
+            if "bug" in issue_type_raw:
+                parts.append("Bug")
+            elif "feature" in issue_type_raw:
+                parts.append("Feature Request")
+            elif "support" in issue_type_raw or "query" in issue_type_raw:
+                parts.append("Support Query")
+        if feature_area:
+            parts.append(feature_area)
+        title = ": ".join(parts) if parts else f"FormSG submission {submission_id[:8]}"
+
+    _issue_type_map = {
+        "bug": IssueType.Bug,
+        "feature": IssueType.FeatureRequest,
+        "support": IssueType.UserGuideQuestion,
+        "query": IssueType.UserGuideQuestion,
+    }
+    initial_issue_type = next(
+        (v for k, v in _issue_type_map.items() if k in issue_type_raw), None
     )
 
     # Extract FormSG submission timestamp from the webhook payload
@@ -186,6 +216,7 @@ def formsg_webhook():
         title=title[:500], description=description,
         source=Source.formsg, source_ref=submission_id,
         status=Status.Backlog, priority=initial_priority, agency_id=agency_id,
+        issue_type=initial_issue_type,
         requester_name=fields.get("requester_name"),
         requester_email=fields.get("requester_email"),
         submitted_at=submitted_at,

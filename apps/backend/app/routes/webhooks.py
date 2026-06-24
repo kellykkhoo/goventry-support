@@ -105,7 +105,7 @@ def _map_responses(responses: list) -> dict:
         "title": find("subject", "title", "summary"),
         "description": find("describe", "description", "detail", "message", "feedback", "issue", "problem", "question"),
         "agency_hint": find("agency", "department", "ministry", "organisation", "organization"),
-        "priority_hint": find("priority", "urgency", "severity"),
+        "priority_hint": find("impacting your work", "impact", "priority", "urgency", "severity"),
         "issue_type_raw": issue_type_raw,
         "feature_area": feature_area,
     }
@@ -210,7 +210,10 @@ def formsg_webhook():
         "high": Priority.High, "urgent": Priority.Urgent,
     }
     priority_hint = (fields.get("priority_hint") or "").lower().strip()
-    initial_priority = _priority_map.get(priority_hint, Priority.Medium)
+    initial_priority = next(
+        (v for k, v in _priority_map.items() if priority_hint.startswith(k)),
+        Priority.Medium,
+    )
 
     issue = Issue(
         title=title[:500], description=description,

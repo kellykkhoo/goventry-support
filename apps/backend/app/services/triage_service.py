@@ -156,8 +156,11 @@ def run_triage(issue_id: int) -> dict | None:
         return None
 
     client = _build_client()
-    messages = [{"role": "user", "content":
-                 f"Ticket #{issue.id}\nTitle: {issue.title}\nDescription: {issue.description}"}]
+    user_priority = issue.priority.value if issue.priority else None
+    ticket_content = f"Ticket #{issue.id}\nTitle: {issue.title}\nDescription: {issue.description}"
+    if user_priority:
+        ticket_content += f"\nUser-stated priority: {user_priority} (treat as a strong signal; override only if clearly misclassified)"
+    messages = [{"role": "user", "content": ticket_content}]
 
     parsed = None
     for _ in range(MAX_TURNS):

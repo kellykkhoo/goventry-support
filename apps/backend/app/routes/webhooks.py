@@ -102,6 +102,7 @@ def _map_responses(responses: list) -> dict:
         "title": find("subject", "title", "summary", "feature", "enquiry"),
         "description": find("describe", "description", "detail", "message", "feedback", "issue", "problem", "question"),
         "agency_hint": find("agency", "department", "ministry", "organisation", "organization"),
+        "priority_hint": find("priority", "urgency", "severity"),
     }
 
 
@@ -174,10 +175,17 @@ def formsg_webhook():
         except (ValueError, AttributeError):
             pass  # If parsing fails, submitted_at remains None
 
+    _priority_map = {
+        "low": Priority.Low, "medium": Priority.Medium,
+        "high": Priority.High, "urgent": Priority.Urgent,
+    }
+    priority_hint = (fields.get("priority_hint") or "").lower().strip()
+    initial_priority = _priority_map.get(priority_hint, Priority.Medium)
+
     issue = Issue(
         title=title[:500], description=description,
         source=Source.formsg, source_ref=submission_id,
-        status=Status.Backlog, priority=Priority.Medium, agency_id=agency_id,
+        status=Status.Backlog, priority=initial_priority, agency_id=agency_id,
         requester_name=fields.get("requester_name"),
         requester_email=fields.get("requester_email"),
         submitted_at=submitted_at,

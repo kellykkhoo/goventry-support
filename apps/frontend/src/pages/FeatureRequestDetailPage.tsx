@@ -97,29 +97,32 @@ export default function FeatureRequestDetailPage() {
     );
   }
 
-  const currentPmNotes = pmNotesDraft !== null ? pmNotesDraft : (feature.pm_notes ?? "");
-  const currentTarget = targetDraft !== null ? targetDraft : (feature.target_release ?? "");
+  // Alias to a non-null const so TypeScript's closure narrowing works correctly
+  const feat = feature as FeatureRequest;
+
+  const currentPmNotes = pmNotesDraft !== null ? pmNotesDraft : (feat.pm_notes ?? "");
+  const currentTarget = targetDraft !== null ? targetDraft : (feat.target_release ?? "");
 
   function startEditTitle() {
-    setTitleDraft(feature.title);
+    setTitleDraft(feat.title);
     setEditingTitle(true);
   }
 
   function saveTitle() {
     const trimmed = titleDraft.trim();
-    if (trimmed && trimmed !== feature.title) {
+    if (trimmed && trimmed !== feat.title) {
       patchMutation.mutate({ title: trimmed });
     }
     setEditingTitle(false);
   }
 
   function startEditDesc() {
-    setDescDraft(feature.description);
+    setDescDraft(feat.description);
     setEditingDesc(true);
   }
 
   function saveDesc() {
-    if (descDraft !== feature.description) {
+    if (descDraft !== feat.description) {
       patchMutation.mutate({ description: descDraft });
     }
     setEditingDesc(false);
@@ -128,7 +131,7 @@ export default function FeatureRequestDetailPage() {
   function handleTargetBlur() {
     if (targetDraft !== null) {
       const trimmed = targetDraft.trim();
-      if (trimmed !== (feature.target_release ?? "")) {
+      if (trimmed !== (feat.target_release ?? "")) {
         patchMutation.mutate({ target_release: trimmed || null });
       }
     }

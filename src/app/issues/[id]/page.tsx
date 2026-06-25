@@ -51,7 +51,7 @@ export default async function IssuePage({ params }: { params: Promise<{ id: stri
             <span className="text-zinc-300">{issue.requesterEmail}</span>
             {issue.submittedAt && (
               <>
-                {" "}· Submitted: <span className="text-zinc-300">{new Date(issue.submittedAt).toLocaleString("en-SG")}</span>
+                {" "}· Submitted: <span className="text-zinc-300">{new Date(issue.submittedAt).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}</span>
               </>
             )}
           </div>
@@ -71,7 +71,7 @@ export default async function IssuePage({ params }: { params: Promise<{ id: stri
               }`}
             >
               <div className="mb-1 text-[11px] text-muted">
-                {m.senderName} · {m.direction} · {m.createdAt.toLocaleString("en-SG")}
+                {m.senderName} · {m.direction} · {m.createdAt.toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}
               </div>
               <div className="whitespace-pre-wrap text-zinc-300">{m.body}</div>
             </div>

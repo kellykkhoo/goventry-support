@@ -95,7 +95,7 @@ export function TriagePanel({
           )}
           {triagedAt && (
             <div className="text-[10px] text-muted">
-              Triaged {new Date(triagedAt).toLocaleString("en-SG")} — draft loaded in the reply box
+              Triaged {new Date(triagedAt).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })} — draft loaded in the reply box
               below; review before sending.
             </div>
           )}

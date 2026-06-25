@@ -255,7 +255,6 @@ export async function triageIssue(issueId: number): Promise<TriageResult | null>
       triagedAt: new Date(),
       // Apply classification only where the intake left defaults
       issueType: result.issueType,
-      priority: result.priority,
       product: result.product,
     },
   });

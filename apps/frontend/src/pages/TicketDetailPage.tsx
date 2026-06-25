@@ -262,7 +262,7 @@ export default function TicketDetailPage() {
               <p className="text-sm text-gray-500">{issue.requester_email}</p>
             )}
             {issue.submitted_at && (
-              <p className="text-xs text-gray-400 mt-1">Submitted: {new Date(issue.submitted_at).toLocaleString("en-SG")}</p>
+              <p className="text-xs text-gray-400 mt-1">Submitted: {new Date(issue.submitted_at).toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}</p>
             )}
           </div>
 

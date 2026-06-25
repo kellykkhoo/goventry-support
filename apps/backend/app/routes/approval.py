@@ -6,6 +6,7 @@ from ..extensions import db
 from ..models.user import User
 from ..models.hermes_job_run import HermesJobRun
 from ..services.approval_service import approval_service
+from ..utils import utciso
 
 bp = Blueprint("approvals", __name__, url_prefix="/approvals")
 
@@ -21,8 +22,8 @@ def _dict(p):
         "final_payload": p.final_payload, "required_tier": p.required_tier.value,
         "status": p.status.value, "reviewer_id": p.reviewer_id,
         "reject_reason": p.reject_reason,
-        "created_at": p.created_at.isoformat(),
-        "decided_at": p.decided_at.isoformat() if p.decided_at else None,
+        "created_at": utciso(p.created_at),
+        "decided_at": utciso(p.decided_at),
     }
 
 

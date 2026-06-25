@@ -4,6 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..middleware.auth_middleware import require_role
 from ..models.draft_feedback import FEEDBACK_CATEGORIES
 from ..services.feedback_service import feedback_service
+from ..utils import utciso
 
 bp = Blueprint("feedback", __name__, url_prefix="/feedback")
 
@@ -34,7 +35,7 @@ def record():
         "issue_id": record.issue_id,
         "feedback_category": record.feedback_category,
         "reviewer_notes": record.reviewer_notes,
-        "created_at": record.created_at.isoformat(),
+        "created_at": utciso(record.created_at),
     }), 201
 
 

@@ -5,6 +5,7 @@ from ..extensions import db
 from ..models.user import User
 from ..services.issue_service import issue_service
 from ..services.triage_service import triage_in_background
+from ..utils import utciso
 
 bp = Blueprint("issues", __name__, url_prefix="/issues")
 
@@ -25,16 +26,16 @@ def _issue_dict(i):
         "assignee_id": i.assignee_id,
         "requester_name": i.requester_name, "requester_email": i.requester_email,
         "ai_triage_json": i.ai_triage_json, "ai_draft_reply": i.ai_draft_reply,
-        "triaged_at": i.triaged_at.isoformat() if i.triaged_at else None,
+        "triaged_at": utciso(i.triaged_at),
         "resolution_summary": i.resolution_summary,
-        "created_at": i.created_at.isoformat(),
-        "submitted_at": i.submitted_at.isoformat() if i.submitted_at else None,
+        "created_at": utciso(i.created_at),
+        "submitted_at": utciso(i.submitted_at),
     }
 
 
 def _msg_dict(m):
     return {"id": m.id, "direction": m.direction.value, "sender_name": m.sender_name,
-            "body": m.body, "created_at": m.created_at.isoformat()}
+            "body": m.body, "created_at": utciso(m.created_at)}
 
 
 def _handle(fn):

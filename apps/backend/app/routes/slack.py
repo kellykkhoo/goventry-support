@@ -4,6 +4,7 @@ from ..middleware.auth_middleware import require_role
 from ..extensions import db
 from ..models.slack_delivery_log import SlackDeliveryLog
 from ..services.slack_service import slack_service
+from ..utils import utciso
 
 bp = Blueprint("slack", __name__, url_prefix="/slack")
 
@@ -35,7 +36,7 @@ def delivery_logs():
             "status": r.status,
             "error_message": r.error_message,
             "payload_preview": r.payload_preview,
-            "created_at": r.created_at.isoformat(),
+            "created_at": utciso(r.created_at),
         }
         for r in rows
     ])

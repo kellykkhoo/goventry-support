@@ -6,6 +6,7 @@ from ..extensions import db
 from ..models.user import User
 from ..models.gitlab_issue_proposal import GitLabIssueProposal, ProposalStatus
 from ..services.gitlab_service import gitlab_service, REPOS
+from ..utils import utciso
 
 bp = Blueprint("gitlab", __name__, url_prefix="/gitlab")
 
@@ -30,8 +31,8 @@ def _proposal_dict(p: GitLabIssueProposal) -> dict:
         "reviewer_id": p.reviewer_id,
         "reject_reason": p.reject_reason,
         "gitlab_issue_url": p.gitlab_issue_url,
-        "created_at": p.created_at.isoformat(),
-        "decided_at": p.decided_at.isoformat() if p.decided_at else None,
+        "created_at": utciso(p.created_at),
+        "decided_at": utciso(p.decided_at),
     }
 
 

@@ -4,6 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
 from ..models.user import User
 from ..services.knowledge_service import knowledge_service
+from ..utils import utciso
 
 bp = Blueprint("knowledge", __name__, url_prefix="/knowledge")
 
@@ -21,7 +22,7 @@ def _entry_dict(e, full_content: bool = True):
         "visibility": e.visibility.value,
         "agency_id": e.agency_id,
         "issue_id": e.issue_id,
-        "created_at": e.created_at.isoformat(),
+        "created_at": utciso(e.created_at),
     }
 
 

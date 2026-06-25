@@ -8,6 +8,7 @@ from ..models.issue import Issue
 from ..models.hermes_report import HermesReport
 from ..models.hermes_job_run import HermesJobRun
 from ..services.triage_service import run_triage, regenerate_draft_reply
+from ..utils import utciso
 from ..models.proposed_action import ProposedAction
 from ..services.report_service import generate_daily_report, generate_weekly_report
 from ..services.approval_service import approval_service
@@ -204,8 +205,8 @@ def activity():
             "status": r.status,
             "result_summary": r.result_summary,
             "error_message": r.error_message,
-            "started_at": r.started_at.isoformat(),
-            "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+            "started_at": utciso(r.started_at),
+            "finished_at": utciso(r.finished_at),
         }
         for r in rows
     ])
@@ -226,7 +227,7 @@ def list_reports():
             "agency_id": r.agency_id,
             "slack_sent": r.slack_sent,
             "payload": r.payload,
-            "created_at": r.created_at.isoformat(),
+            "created_at": utciso(r.created_at),
         }
         for r in rows
     ])

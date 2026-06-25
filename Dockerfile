@@ -21,11 +21,12 @@ WORKDIR /app
 
 COPY --chown=app:app apps/backend/ .
 COPY --chown=app:app --from=frontend-builder /frontend/dist ./static_frontend
+COPY --chown=app:app docker-entrypoint.sh /docker-entrypoint.sh
 
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir . && chmod +x /docker-entrypoint.sh
 
 USER app
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "flask --app wsgi db upgrade && flask --app wsgi bootstrap-admin && gunicorn wsgi:app --bind 0.0.0.0:3000 --workers 2 --timeout 120 --worker-tmp-dir /tmp"]
+ENTRYPOINT ["/docker-entrypoint.sh"]

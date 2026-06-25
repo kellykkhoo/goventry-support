@@ -969,7 +969,7 @@ Admin login remains as fallback.
 7. What fields define agency separation in the current data?
 8. Should cross-agency global trends be allowed if anonymized?
 9. Should Hermes reports be stored forever or retained for a fixed period?
-10. What is the deployment target: Vercel/Cloudflare for frontend and Render/Fly/Cloud Run for backend, or an internal platform?
+10. What is the deployment target: GitLab CI/CD pipeline to internal gov platform (RabbitDeploy/Airbase)?
 11. Should external webhooks still exist if the frontend is gated behind login?
 12. Should there be a separate agency-facing portal in the future?
 

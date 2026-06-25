@@ -163,3 +163,32 @@ export interface DraftFeedback {
   agency_id: number | null;
   created_at: string;
 }
+
+export interface FeatureRequest {
+  id: number;
+  title: string;
+  description: string;
+  status: "New" | "UnderReview" | "Planned" | "InProgress" | "Released" | "Rejected";
+  priority: "High" | "Medium" | "Low";
+  product: string | null;
+  pm_notes: string | null;
+  target_release: string | null;
+  score: number;
+  agency_count: number;
+  ticket_count: number;
+  agencies: { id: number; code: string; name: string }[];
+  linked_tickets: { id: number; title: string }[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FeatureRequestListResponse {
+  items: FeatureRequest[];
+  total: number;
+}
+
+export interface FeatureAnalytics {
+  top_features: { id: number; title: string; agency_count: number; ticket_count: number; score: number }[];
+  top_agencies: { code: string; name: string; count: number }[];
+  monthly_trend: { month: string; count: number }[];
+}

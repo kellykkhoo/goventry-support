@@ -13,6 +13,7 @@ from .hermes_job_run import HermesJobRun
 from .slack_delivery_log import SlackDeliveryLog
 from .draft_feedback import DraftFeedback
 from .gitlab_issue_proposal import GitLabIssueProposal
+from .feature_request import FeatureRequest, FeatureRequestAgency, FeatureRequestTicket, FRStatus, FRPriority
 
 __all__ = [
     "Role", "User", "Agency", "UserAgencyAccess", "TeamMember",
@@ -21,4 +22,5 @@ __all__ = [
     "ProposedAction", "ActionType", "ProposalStatus", "ApprovalTier",
     "HermesReport", "HermesJobRun", "SlackDeliveryLog", "DraftFeedback",
     "GitLabIssueProposal",
+    "FeatureRequest", "FeatureRequestAgency", "FeatureRequestTicket", "FRStatus", "FRPriority",
 ]

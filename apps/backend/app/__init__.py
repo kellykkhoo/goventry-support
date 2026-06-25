@@ -39,6 +39,7 @@ def create_app(config: Config | None = None) -> Flask:
     from .routes.slack import bp as slack_bp
     from .routes.feedback import bp as feedback_bp
     from .routes.gitlab import bp as gitlab_bp
+    from .routes.feature_requests import bp as feature_requests_bp
     app.register_blueprint(approval_bp)
     app.register_blueprint(webhooks_bp)
     app.register_blueprint(knowledge_bp)
@@ -47,6 +48,7 @@ def create_app(config: Config | None = None) -> Flask:
     app.register_blueprint(slack_bp)
     app.register_blueprint(feedback_bp)
     app.register_blueprint(gitlab_bp)
+    app.register_blueprint(feature_requests_bp)
 
     @app.get("/health")
     def health():
@@ -102,6 +104,7 @@ def create_app(config: Config | None = None) -> Flask:
         Issue, IssueAgency, TicketMessage, KnowledgeEntry, AuditLog,
         ProposedAction, HermesReport, HermesJobRun, SlackDeliveryLog, DraftFeedback,
         GitLabIssueProposal,
+        FeatureRequest, FeatureRequestAgency, FeatureRequestTicket, FRStatus, FRPriority,
     )
 
     return app

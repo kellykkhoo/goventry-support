@@ -6,6 +6,7 @@ from ..models.team_member import TeamMember
 from ..models.issue import Issue, Status, Priority, Product, IssueType, Source
 from ..models.knowledge_entry import KnowledgeEntry, SourceType, Visibility
 from ..models.user import User
+from ..models.feature_request import FeatureRequest, FeatureRequestAgency, FeatureRequestTicket, FRStatus, FRPriority
 
 
 _AGENCIES = [
@@ -103,6 +104,18 @@ _ISSUES = [
         "HDB", "Procurement", "procurement@hdb.gov.sg",
         None, None,
     ),
+]
+
+_FEATURE_REQUESTS = [
+    # (title, description, status, priority, product, pm_notes, target_release, agency_codes, linked_issue_count)
+    ("Bulk CSV Upload", "Allow agencies to upload multiple registrations simultaneously via CSV file.", FRStatus.UnderReview, FRPriority.High, "GovEntry", "Need backend batch validation and error reporting.", "Q3 2026", ["MOH", "NEA", "MINDEF", "HDB", "LTA", "MOM", "MOE", "MFA"], 14),
+    ("Slack Notifications", "Send real-time Slack alerts when registration status changes.", FRStatus.Planned, FRPriority.Medium, "GovEntry", "Requires Slack OAuth integration.", "Q4 2026", ["MOH", "NEA", "MINDEF", "HDB", "LTA", "MOM", "MOE"], 8),
+    ("API Integration for Vendor Systems", "REST API for vendors to submit and track procurement programmatically.", FRStatus.InProgress, FRPriority.High, "GovSupply", "Working with NEA pilot.", "Q2 2026", ["NEA", "MINDEF", "HDB", "LTA", "MOM"], 11),
+    ("Dark Mode", "Add dark mode theme to the portal UI.", FRStatus.New, FRPriority.Low, "GovEntry", None, None, ["MOH", "MOE"], 2),
+    ("Analytics Export to PDF", "Allow PMs to export the reports dashboard as a PDF.", FRStatus.UnderReview, FRPriority.Medium, "GovEntry", "Explore headless Chrome rendering.", "Q3 2026", ["GOVTECH", "MOH", "NEA", "MINDEF"], 7),
+    ("Role-based Access Control", "Fine-grained permissions per agency user.", FRStatus.InProgress, FRPriority.High, "GovEntry", "Critical for multi-agency rollout.", "Q2 2026", ["MOH", "NEA", "MINDEF", "HDB", "LTA", "MOM", "MOE", "MFA", "GOVTECH"], 19),
+    ("Search Filters on Rewards Catalogue", "Add category, price range, and provider filters.", FRStatus.Released, FRPriority.Medium, "GovRewards", "Shipped in v2.3.", "Q1 2026", ["GOVTECH", "MOH", "NEA"], 5),
+    ("Mobile-Friendly Portal", "Responsive design for mobile browsers.", FRStatus.Planned, FRPriority.Medium, "GovEntry", None, "Q4 2026", ["MOH", "NEA", "HDB", "MOM"], 6),
 ]
 
 _KB_DOCS = [
@@ -277,5 +290,42 @@ def seed_demo(if_empty: bool = False) -> None:
                 proposer="agent:hermes", proposed_payload={"agency_id": first.agency_id},
                 required_tier=ApprovalTier.auto, status=ProposalStatus.executed,
                 decided_at=now))
+
+    # 7. Feature requests (8)
+    existing_frs = db.session.scalar(
+        db.select(db.func.count()).select_from(FeatureRequest))
+    if not existing_frs:
+        # Use FeatureRequest-type issues as link candidates
+        fr_type_issues = [i for i in created_issues if i.issue_type == IssueType.FeatureRequest]
+        # Fall back to any issues if none typed
+        link_pool = fr_type_issues if fr_type_issues else created_issues
+
+        for (title, description, status, priority, product, pm_notes,
+             target_release, agency_codes, linked_issue_count) in _FEATURE_REQUESTS:
+            fr = FeatureRequest(
+                title=title,
+                description=description,
+                status=status,
+                priority=priority,
+                product=product,
+                pm_notes=pm_notes,
+                target_release=target_release,
+            )
+            db.session.add(fr)
+            db.session.flush()
+
+            for code in agency_codes:
+                aid = agency_map.get(code)
+                if aid:
+                    db.session.add(FeatureRequestAgency(
+                        feature_request_id=fr.id,
+                        agency_id=aid,
+                    ))
+
+            for issue in link_pool[:linked_issue_count]:
+                db.session.add(FeatureRequestTicket(
+                    feature_request_id=fr.id,
+                    issue_id=issue.id,
+                ))
 
     db.session.commit()

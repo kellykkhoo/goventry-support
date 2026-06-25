@@ -15,6 +15,9 @@ import type {
   HermesReport,
   SlackDeliveryLog,
   DraftFeedback,
+  FeatureRequest,
+  FeatureRequestListResponse,
+  FeatureAnalytics,
 } from "./types";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
@@ -249,6 +252,23 @@ export const api = {
   getFeedbackExamples(agencyId?: number) {
     const qs = agencyId != null ? `?agency_id=${agencyId}` : "";
     return request<Record<string, unknown>[]>(`/feedback/examples${qs}`);
+  },
+
+  listFeatureRequests(params?: URLSearchParams) {
+    const q = params?.toString();
+    return request<FeatureRequestListResponse>(`/feature-requests${q ? `?${q}` : ""}`);
+  },
+  getFeatureRequest(id: number) {
+    return request<FeatureRequest>(`/feature-requests/${id}`);
+  },
+  createFeatureRequest(body: object) {
+    return request<FeatureRequest>("/feature-requests", { method: "POST", body: JSON.stringify(body) });
+  },
+  patchFeatureRequest(id: number, body: object) {
+    return request<FeatureRequest>(`/feature-requests/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+  },
+  getFeatureAnalytics() {
+    return request<FeatureAnalytics>("/feature-requests/analytics");
   },
 };
 

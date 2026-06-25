@@ -53,6 +53,7 @@ export default function AppShell() {
 
   const isAdmin = user?.role === "Admin";
   const kbActive = pathname.startsWith("/knowledge");
+  const roadmapActive = pathname.startsWith("/roadmap");
 
   return (
     <div className="min-h-screen flex">
@@ -64,6 +65,16 @@ export default function AppShell() {
         <nav className="flex-1 p-3 space-y-0.5">
           <NavLink to="/tickets" label="Tickets" />
           <NavLink to="/agencies" label="Agencies" />
+
+          {/* Roadmap with sub-nav */}
+          <NavLink to="/roadmap" label="Roadmap" exact />
+          {roadmapActive && (
+            <div className="space-y-0.5 mt-0.5">
+              <SubNavLink to="/roadmap/features" label="Feature Backlog" />
+              <SubNavLink to="/roadmap" label="Kanban Board" />
+            </div>
+          )}
+
           <NavLink to="/approvals" label="Approvals" badge={pendingApprovals?.total} />
 
           {/* Knowledge Base with sub-nav */}

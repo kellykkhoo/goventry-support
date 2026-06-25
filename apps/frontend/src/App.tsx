@@ -12,6 +12,9 @@ import ApprovalQueuePage from "./pages/ApprovalQueuePage";
 import KnowledgePage from "./pages/KnowledgePage";
 import ReportsPage from "./pages/ReportsPage";
 import HermesActivityPage from "./pages/HermesActivityPage";
+import FeatureBacklogPage from "./pages/FeatureBacklogPage";
+import FeatureRequestDetailPage from "./pages/FeatureRequestDetailPage";
+import RoadmapPage from "./pages/RoadmapPage";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +41,9 @@ export default function App() {
               <Route path="knowledge" element={<KnowledgePage />} />
               <Route path="knowledge/guides" element={<KnowledgePage sourceType="doc" />} />
               <Route path="knowledge/tickets" element={<KnowledgePage sourceType="resolved_ticket" />} />
+              <Route path="roadmap" element={<RoadmapPage />} />
+              <Route path="roadmap/features" element={<FeatureBacklogPage />} />
+              <Route path="roadmap/features/:id" element={<FeatureRequestDetailPage />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="hermes" element={<HermesActivityPage />} />
             </Route>
